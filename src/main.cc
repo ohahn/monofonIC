@@ -14,13 +14,13 @@
 
 // initialise with "default" values
 namespace CONFIG{
-int  MPI_thread_support = -1;
-int  MPI_task_rank = 0;
-int  MPI_task_size = 1;
-bool MPI_ok = false;
-bool MPI_threads_ok = false;
-bool FFTW_threads_ok = false;
-int  num_threads = 1;
+    int  MPI_thread_support = -1;
+    int  MPI_task_rank = 0;
+    int  MPI_task_size = 1;
+    bool MPI_ok = false;
+    bool MPI_threads_ok = false;
+    bool FFTW_threads_ok = false;
+    int  num_threads = 1;
 }
 
 

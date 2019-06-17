@@ -106,6 +106,7 @@ public:
         csoca::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
     }
 
+
     const CosmologyParameters &GetParams(void) const
     {
         return cosmo_param_;
