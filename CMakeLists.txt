@@ -265,3 +265,13 @@ if(ENABLE_GENERICIO)
   target_link_libraries(${PRGNAME} PRIVATE genericio::genericio_mpi)
   target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_GENERICIO")
 endif()
+
+################################### Testing ####################################
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+  include(CTest)
+  enable_testing()
+endif()
+
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
+  add_subdirectory(testing)
+endif()
