@@ -273,3 +273,11 @@ if(ENABLE_GENERICIO)
   target_link_libraries(${PRGNAME} PRIVATE genericio::genericio_mpi)
   target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_GENERICIO")
 endif()
+
+option(ENABLE_AMReX "Enable AMReX support (as a submodule)." OFF)
+
+if(ENABLE_AMReX)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/external/AMReX.cmake)
+  target_link_libraries( ${PRGNAME} PRIVATE  AMReX::amrex AMReX::Flags_CXX )
+  target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_AMREX")
+endif()
