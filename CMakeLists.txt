@@ -274,7 +274,9 @@ if(ENABLE_GENERICIO)
   target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_GENERICIO")
 endif()
 
-option(ENABLE_AMReX "Enable AMReX support (as a submodule)." OFF)
+########################################################################################################################
+# include AMReX, needed only for the NyX output plugin 
+option(ENABLE_AMReX "Enable AMReX (NyX) support (as a submodule)." OFF)
 
 if(ENABLE_AMReX)
   include(${CMAKE_CURRENT_SOURCE_DIR}/external/AMReX.cmake)
