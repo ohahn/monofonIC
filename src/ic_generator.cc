@@ -187,6 +187,19 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------
     // Create arrays
     //--------------------------------------------------------------------
+
+    // white noise field 
+    Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
+
+    //... Fill the wnoise grid with a Gaussian white noise field, we do this first since the RNG might need extra memory
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    music::ilog << "Generating white noise field...." << std::endl;
+
+    the_random_number_generator->Fill_Grid(wnoise);
+    
+    wnoise.FourierTransformForward();
+
+    //... Next, declare LPT related arrays, allocated only as needed by order
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // do not allocate these unless needed
     Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
@@ -197,24 +210,12 @@ int run( config_file& the_config )
     //... array [.] access to components of A3:
     std::array<Grid_FFT<real_t> *, 3> A3({&A3x, &A3y, &A3z});
 
-    // white noise field 
-    Grid_FFT<real_t> wnoise({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
-
     // temporary storage of additional data
     Grid_FFT<real_t> tmp({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
 
     //--------------------------------------------------------------------
-    // Fill the grid with a Gaussian white noise field
-    //--------------------------------------------------------------------
-    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    music::ilog << "Generating white noise field...." << std::endl;
-
-    the_random_number_generator->Fill_Grid(wnoise);
-    
-    wnoise.FourierTransformForward();
-
-    //--------------------------------------------------------------------
     // Use externally specified large scale modes from constraints in case
+    // TODO: move to separate routine
     //--------------------------------------------------------------------
     if( bAddConstrainedModes ){
         Grid_FFT<real_t,false> cwnoise({8,8,8}, {boxlen,boxlen,boxlen});

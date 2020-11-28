@@ -37,7 +37,7 @@ public:
 		real_t boxsize  = cf_.get_value<double>("setup", "BoxLength");
 		real_t omegab   = pcc->cosmo_param_["Omega_b"];
 		real_t omegam   = pcc->cosmo_param_["Omega_m"];
-		real_t omegal   = pcc->cosmo_param_["Omega_L"];
+		real_t omegal   = pcc->cosmo_param_["Omega_DE"];
 		
 
 		out_eulerian_   = cf_.get_value_safe<bool>("output", "generic_out_eulerian",false);

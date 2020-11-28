@@ -99,9 +99,9 @@ void Grid_FFT<data_t, bdistributed>::allocate(void)
 
         if (typeid(data_t) == typeid(real_t))
         {
-            cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2] / 2 + 1, MPI_COMM_WORLD,
+            cmplxsz = FFTW_API(mpi_local_size_3d_transposed)(n_[0], n_[1], n_[2], MPI_COMM_WORLD,
                                                              &local_0_size_, &local_0_start_, &local_1_size_, &local_1_start_);
-            ntot_ = 2 * cmplxsz;
+            ntot_ = local_0_size_ * n_[1] * (n_[2]+2);
             data_ = (data_t *)FFTW_API(malloc)(ntot_ * sizeof(real_t));
             cdata_ = reinterpret_cast<ccomplex_t *>(data_);
             plan_ = FFTW_API(mpi_plan_dft_r2c_3d)(n_[0], n_[1], n_[2], (real_t *)data_, (complex_t *)data_,
@@ -185,6 +185,7 @@ void Grid_FFT<data_t, bdistributed>::ApplyNorm(void)
         data_[i] *= fft_norm_fac_;
 }
 
+//! Perform a backwards Fourier transformation
 template <typename data_t, bool bdistributed>
 void Grid_FFT<data_t, bdistributed>::FourierTransformForward(bool do_transform)
 {
@@ -217,6 +218,7 @@ void Grid_FFT<data_t, bdistributed>::FourierTransformForward(bool do_transform)
     }
 }
 
+//! Perform a forward Fourier transformation
 template <typename data_t, bool bdistributed>
 void Grid_FFT<data_t, bdistributed>::FourierTransformBackward(bool do_transform)
 {
@@ -247,6 +249,229 @@ void Grid_FFT<data_t, bdistributed>::FourierTransformBackward(bool do_transform)
         //.............................
     }
 }
+
+//! Perform a copy to another field, not necessarily the same size, using Fourier interpolation
+template <typename data_t, bool bdistributed>
+void Grid_FFT<data_t, bdistributed>::FourierInterpolateCopyTo( grid_fft_t &grid_to )
+{
+    grid_fft_t &grid_from = *this;
+
+    //... transform both grids to Fourier space
+    grid_from.FourierTransformForward(true);
+    grid_to.FourierTransformForward(false);
+    
+    // if grids are same size, we directly copy without the need for interpolation
+    if( grid_from.n_[0] == grid_to.n_[0] 
+        && grid_from.n_[1] == grid_to.n_[1] 
+        && grid_from.n_[2] == grid_to.n_[2] )
+    {
+        grid_to.copy_from( grid_from );
+        return;
+    }
+
+    // set to zero so that regions without data are zeroed
+    grid_to.zero();
+
+    // if not running MPI, then can do without sending and receiving
+#if !defined(USE_MPI)
+
+    // determine effective Nyquist modes representable by both fields and their locations in array
+    size_t fny0_left  = std::min(grid_from.n_[0] / 2, grid_to.n_[0] / 2);
+    size_t fny0_right = std::max(grid_from.n_[0] - grid_to.n_[0] / 2, grid_from.n_[0] / 2);
+    size_t fny1_left  = std::min(grid_from.n_[1] / 2, grid_to.n_[1] / 2);
+    size_t fny1_right = std::max(grid_from.n_[1] - grid_to.n_[1] / 2, grid_from.n_[1] / 2);
+    size_t fny2_left  = std::min(grid_from.n_[2] / 2, grid_to.n_[2] / 2);
+    // size_t fny2_right = std::max(grid_from.n_[2] - grid_to.n_[2] / 2, grid_from.n_[2] / 2);
+
+    const size_t fny0_left_recv  = fny0_left;
+    const size_t fny0_right_recv = (fny0_right + grid_to.n_[0]) - grid_from.n_[0];
+    const size_t fny1_left_recv  = fny1_left;
+    const size_t fny1_right_recv = (fny1_right + grid_to.n_[1]) - grid_from.n_[1];
+    const size_t fny2_left_recv  = fny2_left;
+    // const size_t fny2_right_recv = (fny2_right + grid_to.n_[2]) - grid_from.n_[2];
+
+    #pragma omp parallel for
+    for( size_t i=0; i<grid_to.size(0); ++i )
+    {
+        if (i < fny0_left_recv || i > fny0_right_recv)
+        {
+            size_t isend = (i < fny0_left_recv)? i : (i + grid_from.n_[0]) - grid_to.n_[0];
+
+            // copy data slice into new grid, avoiding modes that do not exist in both
+            for( size_t j=0; j<grid_to.size(1); ++j )
+            {
+                if( j < fny1_left_recv || j > fny1_right_recv )
+                {
+                    const size_t jsend = (j < fny1_left_recv)? j : (j + grid_from.n_[1]) - grid_to.n_[1];
+
+                    for( size_t k=0; k<fny2_left_recv; ++k )
+                    {
+                        grid_to.kelem(i,j,k) = grid_from.kelem(isend,jsend,k);
+                    }
+                }
+            }
+        }
+    }
+
+#else
+    // if they are not the same size, we use Fourier interpolation to upscale/downscale
+    double tstart = get_wtime();
+    music::dlog << "[MPI] Started scatter for Fourier interpolation/copy" << std::endl;
+
+    //... determine communication offsets
+    std::vector<ptrdiff_t> offsets_send, offsets_recv, sizes_send, sizes_recv;
+
+    // this should use bisection, not linear search
+    auto get_task = [](ptrdiff_t index, const std::vector<ptrdiff_t> &offsets, const int ntasks) -> int
+    {
+        int itask = 0;
+        while (itask < ntasks - 1 && offsets[itask + 1] <= index)
+            ++itask;
+        return itask;
+    };
+
+    int ntasks(MPI::get_size());
+
+    offsets_send.assign(ntasks+1, 0);
+    sizes_send.assign(ntasks, 0);
+    offsets_recv.assign(ntasks+1, 0);
+    sizes_recv.assign(ntasks, 0);
+
+    MPI_Allgather(&grid_from.local_1_size_, 1, MPI_LONG_LONG, &sizes_send[0], 1,
+                    MPI_LONG_LONG, MPI_COMM_WORLD);
+    MPI_Allgather(&grid_to.local_1_size_, 1, MPI_LONG_LONG, &sizes_recv[0], 1,
+                    MPI_LONG_LONG, MPI_COMM_WORLD);
+    MPI_Allgather(&grid_from.local_1_start_, 1, MPI_LONG_LONG, &offsets_send[0], 1,
+                    MPI_LONG_LONG, MPI_COMM_WORLD);
+    MPI_Allgather(&grid_to.local_1_start_, 1, MPI_LONG_LONG, &offsets_recv[0], 1,
+                    MPI_LONG_LONG, MPI_COMM_WORLD);
+
+    for( int i=0; i< CONFIG::MPI_task_size; i++ ){
+        if( offsets_send[i+1] < offsets_send[i] + sizes_send[i] ) offsets_send[i+1] = offsets_send[i] + sizes_send[i];
+        if( offsets_recv[i+1] < offsets_recv[i] + sizes_recv[i] ) offsets_recv[i+1] = offsets_recv[i] + sizes_recv[i];
+    }
+
+    const MPI_Datatype datatype =
+        (typeid(data_t) == typeid(float)) ? MPI_C_FLOAT_COMPLEX 
+        : (typeid(data_t) == typeid(double)) ? MPI_C_DOUBLE_COMPLEX 
+        : (typeid(data_t) == typeid(long double)) ? MPI_C_LONG_DOUBLE_COMPLEX
+        : MPI_BYTE;
+
+    const size_t slicesz = grid_from.size(1) * grid_from.size(3);
+
+    // determine effective Nyquist modes representable by both fields and their locations in array
+    const size_t fny0_left  = std::min(grid_from.n_[1] / 2, grid_to.n_[1] / 2);
+    const size_t fny0_right = std::max(grid_from.n_[1] - grid_to.n_[1] / 2, grid_from.n_[1] / 2);
+    const size_t fny1_left  = std::min(grid_from.n_[0] / 2, grid_to.n_[0] / 2);
+    const size_t fny1_right = std::max(grid_from.n_[0] - grid_to.n_[0] / 2, grid_from.n_[0] / 2);
+    const size_t fny2_left  = std::min(grid_from.n_[2] / 2, grid_to.n_[2] / 2);
+    // size_t fny2_right = std::max(grid_from.n_[2] - grid_to.n_[2] / 2, grid_from.n_[2] / 2);
+
+    const size_t fny0_left_recv  = fny0_left;
+    const size_t fny0_right_recv = (fny0_right + grid_to.n_[1]) - grid_from.n_[1];
+    const size_t fny1_left_recv  = fny1_left;
+    const size_t fny1_right_recv = (fny1_right + grid_to.n_[0]) - grid_from.n_[0];
+    const size_t fny2_left_recv  = fny2_left;
+    // const size_t fny2_right_recv = (fny2_right + grid_to.n_[2]) - grid_from.n_[2];
+
+    //--- send data from buffer ---------------------------------------------------
+    
+    std::vector<MPI_Request> req;
+    MPI_Request temp_req;
+
+    for (size_t i = 0; i < grid_from.size(0); ++i)
+    {
+        size_t iglobal_send = i + offsets_send[CONFIG::MPI_task_rank];
+        
+        if (iglobal_send < fny0_left) 
+        {
+            size_t iglobal_recv = iglobal_send;
+            int sendto = get_task(iglobal_recv, offsets_recv, CONFIG::MPI_task_size);
+            MPI_Isend(&grid_from.kelem(i * slicesz), (int)slicesz, datatype, sendto,
+                        (int)iglobal_recv, MPI_COMM_WORLD, &temp_req);
+            req.push_back(temp_req);
+            // std::cout << "task " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal_send << " to task " << sendto << ", size = " << slicesz << std::endl;
+        }
+        if (iglobal_send > fny0_right) 
+        {
+            size_t iglobal_recv = (iglobal_send + grid_to.n_[1]) - grid_from.n_[1]; 
+            int sendto = get_task(iglobal_recv, offsets_recv, CONFIG::MPI_task_size);
+            MPI_Isend(&grid_from.kelem(i * slicesz), (int)slicesz, datatype, sendto,
+                        (int)iglobal_recv, MPI_COMM_WORLD, &temp_req);
+            req.push_back(temp_req);
+            // std::cout << "task  " << CONFIG::MPI_task_rank << " : added request No" << req.size()-1 << ": Isend #" << iglobal_send << " to task " << sendto << ", size = " << slicesz<< std::endl;
+        }
+    }
+
+    //--- receive data ------------------------------------------------------------
+    #pragma omp parallel if(CONFIG::MPI_threads_ok)
+    {
+        MPI_Status status;
+        ccomplex_t  * recvbuf = new ccomplex_t[ slicesz ]; 
+
+        #pragma omp for schedule(dynamic) 
+        for( size_t i=0; i<grid_to.size(0); ++i )
+        {   
+            size_t iglobal_recv = i + offsets_recv[CONFIG::MPI_task_rank];
+
+            if (iglobal_recv < fny0_left_recv || iglobal_recv > fny0_right_recv)
+            {
+                size_t iglobal_send = (iglobal_recv < fny0_left_recv)? iglobal_recv : (iglobal_recv + grid_from.n_[1]) - grid_to.n_[1];
+
+                int recvfrom = get_task(iglobal_send, offsets_send, CONFIG::MPI_task_size);
+                
+                //#pragma omp critical // need critical region here if we do "MPI_THREAD_FUNNELED", 
+                {
+                    // receive data slice and check for MPI errors when in debug mode
+                    status.MPI_ERROR = MPI_SUCCESS;
+                    MPI_Recv(&recvbuf[0], (int)slicesz, datatype, recvfrom, (int)iglobal_recv, MPI_COMM_WORLD, &status);
+                    assert(status.MPI_ERROR == MPI_SUCCESS);
+                }
+
+                // copy data slice into new grid, avoiding modes that do not exist in both
+                for( size_t j=0; j<grid_to.size(1); ++j )
+                {
+                    if( j < fny1_left_recv || j > fny1_right_recv )
+                    {
+                        const size_t jsend = (j < fny1_left_recv)? j : (j + grid_from.n_[0]) - grid_to.n_[0];
+
+                        for( size_t k=0; k<fny2_left_recv; ++k )
+                        {
+                            grid_to.kelem(i,j,k) = recvbuf[jsend * grid_from.sizes_[3] + k];
+                        }
+                    }
+                }
+            }
+        }
+        delete[] recvbuf;
+    }
+    MPI_Barrier( MPI_COMM_WORLD );
+    
+    MPI_Status status;
+    for (size_t i = 0; i < req.size(); ++i)
+    {
+        // need to set status as wait does not necessarily modify it
+        // c.f. http://www.open-mpi.org/community/lists/devel/2007/04/1402.php
+        status.MPI_ERROR = MPI_SUCCESS;
+        // std::cout << "task " << CONFIG::MPI_task_rank << " : checking request No" << i << std::endl;
+        int flag(1);
+        MPI_Test(&req[i], &flag, &status);
+        if( !flag ){
+            std::cout << "task " << CONFIG::MPI_task_rank << " : request No" << i << " unsuccessful" << std::endl;
+        }
+
+        MPI_Wait(&req[i], &status);
+        // std::cout << "---> ok!" << std::endl;
+        assert(status.MPI_ERROR == MPI_SUCCESS);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    music::dlog.Print("[MPI] Completed scatter for Fourier interpolation/copy, took %fs\n",
+                        get_wtime() - tstart);  
+#endif //defined(USE_MPI)      
+}
+
 
 #define H5_USE_16_API
 #include <hdf5.h>
@@ -586,7 +811,29 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
 
 #endif
 
+#if defined(USE_MPI)
+    std::vector<size_t> sizes0(MPI::get_size(), 0);
+    std::vector<size_t> offsets0(MPI::get_size()+1, 0);
+
+    MPI_Allgather((this->space_==kspace_id)? &this->local_1_start_ : &this->local_0_start_, 1, 
+        MPI_UNSIGNED_LONG_LONG, &offsets0[0], 1, MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
+
+    MPI_Allgather((this->space_==kspace_id)? &this->local_1_size_ : &this->local_0_size_, 1, 
+        MPI_UNSIGNED_LONG_LONG, &sizes0[0], 1, MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
+
+    for( int i=0; i< CONFIG::MPI_task_size; i++ ){
+        if( offsets0[i+1] < offsets0[i] + sizes0[i] ) offsets0[i+1] = offsets0[i] + sizes0[i];
+    }
+    
+#endif
+
+#if defined(USE_MPI)
+        auto loc_count = size(0), glob_count = size(0);
+        MPI_Allreduce( &loc_count, &glob_count, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, MPI_COMM_WORLD );
+#endif
+
 #if defined(USE_MPI) && !defined(USE_MPI_IO)
+
     for (int itask = 0; itask < mpi_size; ++itask)
     {
         MPI_Barrier(MPI_COMM_WORLD);
@@ -603,7 +850,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
             count[i] = size(i);
 
 #if defined(USE_MPI)
-        count[0] *= mpi_size;
+        count[0] = glob_count;
 #endif
 
         if (typeid(data_t) == typeid(float))
@@ -654,7 +901,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
         plist_id = H5Pcreate(H5P_DATASET_XFER);
         H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 #else
-    plist_id = H5P_DEFAULT;
+        plist_id = H5P_DEFAULT;
 #endif
 
         memspace = H5Screate_simple(3, count, NULL);
@@ -663,9 +910,9 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
         for (size_t i = 0; i < size(0); ++i)
         {
 #if defined(USE_MPI)
-            offset[0] = mpi_rank * size(0) + i;
+            offset[0] = offsets0[mpi_rank] + i;
 #else
-        offset[0] = i;
+            offset[0] = i;
 #endif
 
             for (size_t j = 0; j < size(1); ++j)
@@ -703,7 +950,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
             for (int i = 0; i < 3; ++i)
                 count[i] = size(i);
 #if defined(USE_MPI)
-            count[0] *= mpi_size;
+            count[0] = glob_count;
 #endif
 
 #if defined(USE_MPI) && !defined(USE_MPI_IO)
@@ -738,7 +985,7 @@ void Grid_FFT<data_t, bdistributed>::Write_to_HDF5(std::string fname, std::strin
             for (size_t i = 0; i < size(0); ++i)
             {
 #if defined(USE_MPI)
-                offset[0] = mpi_rank * size(0) + i;
+                offset[0] = offsets0[mpi_rank] + i;//mpi_rank * size(0) + i;
 #else
             offset[0] = i;
 #endif

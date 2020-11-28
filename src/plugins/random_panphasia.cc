@@ -148,13 +148,12 @@ private:
 protected:
   std::string descriptor_string_;
   int num_threads_;
-  int levelmin_, levelmin_final_, levelmax_, ngrid_;
+  int levelmin_, levelmin_final_, levelmax_, ngrid_, ngrid_panphasia_;
   bool incongruent_fields_;
   double inter_grid_phase_adjustment_;
   // double translation_phase_;
   pan_state_ *lstate;
-  int grid_p_, grid_m_;
-  double grid_rescale_fac_;
+  int grid_p_;
   int coordinate_system_shift_[3];
   int ix_abs_[3], ix_per_[3], ix_rel_[3], level_p_, lextra_;
 
@@ -170,32 +169,29 @@ protected:
 
   void initialize_for_grid_structure(void)
   {
-    clear_panphasia_thread_states();
-    music::ilog.Print("PANPHASIA: running with %d threads", num_threads_);
-
     // if ngrid is not a multiple of i_base, then we need to enlarge and then sample down
     ngrid_ = pcf_->get_value<size_t>("setup", "GridRes");
 
     grid_p_ = pdescriptor_->i_base;
-    grid_m_ = largest_power_two_lte(grid_p_);
+    
+    lextra_ = (log10((double)ngrid_ / (double)grid_p_) + 0.001) / log10(2.0);
 
-    lextra_ = (log10((double)ngrid_ / (double)pdescriptor_->i_base) + 0.001) / log10(2.0);
-    int ratio = 1 << lextra_;
-    grid_rescale_fac_ = 1.0;
+    ngrid_panphasia_ = (1 << lextra_) * grid_p_;
+    
+    if( ngrid_panphasia_ < ngrid_ ){
+      lextra_++;
+      ngrid_panphasia_*=2;
+    }
+    assert( ngrid_panphasia_ >= ngrid_ );
+
+    clear_panphasia_thread_states();
+
+    music::ilog.Print("PANPHASIA: using grid size %lld (level=%d)",ngrid_panphasia_, lextra_);
+    music::ilog.Print("PANPHASIA: running with %d threads", num_threads_, ngrid_panphasia_ );
 
     coordinate_system_shift_[0] = -pcf_->get_value_safe<int>("setup", "shift_x", 0);
     coordinate_system_shift_[1] = -pcf_->get_value_safe<int>("setup", "shift_y", 0);
     coordinate_system_shift_[2] = -pcf_->get_value_safe<int>("setup", "shift_z", 0);
-
-    incongruent_fields_ = false;
-    if (ngrid_ != ratio * pdescriptor_->i_base)
-    {
-      incongruent_fields_ = true;
-      ngrid_ = 2 * ratio * pdescriptor_->i_base;
-      grid_rescale_fac_ = (double)ngrid_ / (1 << levelmin_);
-      music::ilog << "PANPHASIA: will use a higher resolution (using Fourier interpolation)" << std::endl;
-      music::ilog << "     (" << grid_m_ << " -> " << grid_p_ << ") * 2**ref to be compatible with PANPHASIA" << std::endl;
-    }
   }
 
   std::unique_ptr<panphasia_descriptor> pdescriptor_;
@@ -243,28 +239,17 @@ public:
     auto dsinc = [](real_t x) { return (std::fabs(x) > 1e-16) ? (x * std::cos(x) - std::sin(x)) / (x * x) : 0.0; };
     const real_t sqrt3{std::sqrt(3.0)}, sqrt27{std::sqrt(27.0)};
 
-    // make sure we're in the right space
-    Grid_FFT<real_t> &g0 = g;
-    g0.FourierTransformBackward(false);
-
-    // temporaries
-    Grid_FFT<real_t> g1(g.n_, g.length_);
-    Grid_FFT<real_t> g2(g.n_, g.length_);
-    Grid_FFT<real_t> g3(g.n_, g.length_);
-    Grid_FFT<real_t> g4(g.n_, g.length_);
+    // we will overwrite 'g', we can deallocate it while we prepare the panphasia field
+    g.reset();
 
     clear_panphasia_thread_states();
-    music::ilog.Print("PANPHASIA: running with %d threads", num_threads_);
-
-    ngrid_ = pcf_->get_value<size_t>("setup", "GridRes");
-
-    grid_p_ = pdescriptor_->i_base;
-    // grid_m_ = largest_power_two_lte(grid_p_);
-    if (ngrid_ % grid_p_ != 0)
-    {
-      music::elog << "Grid resolution " << ngrid_ << " is not divisible by PANPHASIA descriptor length " << grid_p_ << std::endl;
-      throw std::runtime_error("Chosen [setup] / GridRes is not compatible with PANPHASIA descriptor length!");
-    }
+    
+    // temporaries
+    Grid_FFT<real_t> g0({size_t(ngrid_panphasia_),size_t(ngrid_panphasia_),size_t(ngrid_panphasia_)}, g.length_);
+    Grid_FFT<real_t> g1({size_t(ngrid_panphasia_),size_t(ngrid_panphasia_),size_t(ngrid_panphasia_)}, g.length_);
+    Grid_FFT<real_t> g2({size_t(ngrid_panphasia_),size_t(ngrid_panphasia_),size_t(ngrid_panphasia_)}, g.length_);
+    Grid_FFT<real_t> g3({size_t(ngrid_panphasia_),size_t(ngrid_panphasia_),size_t(ngrid_panphasia_)}, g.length_);
+    Grid_FFT<real_t> g4({size_t(ngrid_panphasia_),size_t(ngrid_panphasia_),size_t(ngrid_panphasia_)}, g.length_);
 
     double t1 = get_wtime();
     // double tp = t1;
@@ -285,21 +270,16 @@ public:
       std::memset(descriptor, 0, 100);
       std::memcpy(descriptor, descriptor_string_.c_str(), descriptor_string_.size());
 
-      start_panphasia_(&lstate[mythread], descriptor, &ngrid_, &verbosity);
+      start_panphasia_(&lstate[mythread], descriptor, &ngrid_panphasia_, &verbosity);
 
       {
         panphasia_descriptor d(descriptor_string_);
 
-        const int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
-        int level_p = d.wn_level_base + lextra;
-        const int ratio = 1 << lextra;
+        int level_p = d.wn_level_base + lextra_;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
         lstate[mythread].indep_field = 1;
-
-        _unused(ratio);
-        assert(ngrid_ == ratio * d.i_base);
 
         long long ix_rel[3];
         ix_rel[0] = 0; //ileft_corner_p[0];
@@ -317,26 +297,28 @@ public:
       pan_state_ *ps = &lstate[mythread];
 
 #pragma omp for //nowait
-      for (size_t i = 0; i < g.size(0); i += 2)
+      for (size_t i = 0; i < g0.size(0); i += 2)
       {
-        for (size_t j = 0; j < g.size(1); j += 2)
+        const int ixmax(std::min<int>(2,g0.size(0)-i));
+        for (size_t j = 0; j < g0.size(1); j += 2)
         {
-          for (size_t k = 0; k < g.size(2); k += 2)
+          const int iymax(std::min<int>(2,g0.size(1)-j));
+          for (size_t k = 0; k < g0.size(2); k += 2)
           {
+            const int izmax(std::min<int>(2,g0.size(2)-k));
 
             // ARJ - added inner set of loops to speed up evaluation of Panphasia
-
-            for (int ix = 0; ix < 2; ++ix)
+            for (int ix = 0; ix < ixmax; ++ix)
             {
-              for (int iy = 0; iy < 2; ++iy)
-              {
-                for (int iz = 0; iz < 2; ++iz)
+              for (int iy = 0; iy < iymax; ++iy)
+              {   
+                for (int iz = 0; iz < izmax; ++iz)
                 {
                   int ilocal = i + ix;
                   int jlocal = j + iy;
                   int klocal = k + iz;
 
-                  int iglobal = ilocal + g.local_0_start_;
+                  int iglobal = ilocal + g0.local_0_start_;
                   int jglobal = jlocal;
                   int kglobal = klocal;
 
@@ -373,9 +355,9 @@ public:
           {
             auto kvec = g0.get_k<real_t>(i, j, k);
 
-            auto argx = 0.5 * M_PI * kvec[0] / g.kny_[0];
-            auto argy = 0.5 * M_PI * kvec[1] / g.kny_[1];
-            auto argz = 0.5 * M_PI * kvec[2] / g.kny_[2];
+            auto argx = 0.5 * M_PI * kvec[0] / g0.kny_[0];
+            auto argy = 0.5 * M_PI * kvec[1] / g0.kny_[1];
+            auto argz = 0.5 * M_PI * kvec[2] / g0.kny_[2];
 
             auto fx = real_t(sinc(argx));
             auto gx = ccomplex_t(0.0, dsinc(argx));
@@ -423,21 +405,16 @@ public:
       std::memset(descriptor, 0, 100);
       std::memcpy(descriptor, descriptor_string_.c_str(), descriptor_string_.size());
 
-      start_panphasia_(&lstate[mythread], descriptor, &ngrid_, &verbosity);
+      start_panphasia_(&lstate[mythread], descriptor, &ngrid_panphasia_, &verbosity);
 
       {
         panphasia_descriptor d(descriptor_string_);
 
-        const int lextra = (log10((double)ngrid_ / (double)d.i_base) + 0.001) / log10(2.0);
-        int level_p = d.wn_level_base + lextra;
-        const int ratio = 1 << lextra;
+        int level_p = d.wn_level_base + lextra_;
 
         lstate[mythread].layer_min = 0;
         lstate[mythread].layer_max = level_p;
         lstate[mythread].indep_field = 1;
-
-        _unused(ratio);
-        assert(ngrid_ == ratio * d.i_base);
 
         long long ix_rel[3];
         ix_rel[0] = 0; //ileft_corner_p[0];
@@ -460,22 +437,26 @@ public:
 #pragma omp for //nowait
       for (size_t i = 0; i < g1.size(0); i += 2)
       {
+        const int ixmax(std::min<int>(2,g1.size(0)-i));
         for (size_t j = 0; j < g1.size(1); j += 2)
         {
+          const int iymax(std::min<int>(2,g1.size(1)-j));
           for (size_t k = 0; k < g1.size(2); k += 2)
           {
+            const int izmax(std::min<int>(2,g1.size(2)-k));
+
             // ARJ - added inner set of loops to speed up evaluation of Panphasia
-            for (int ix = 0; ix < 2; ++ix)
+            for (int ix = 0; ix < ixmax; ++ix)
             {
-              for (int iy = 0; iy < 2; ++iy)
-              {
-                for (int iz = 0; iz < 2; ++iz)
+              for (int iy = 0; iy < iymax; ++iy)
+              {   
+                for (int iz = 0; iz < izmax; ++iz)
                 {
                   int ilocal = i + ix;
                   int jlocal = j + iy;
                   int klocal = k + iz;
 
-                  int iglobal = ilocal + g.local_0_start_;
+                  int iglobal = ilocal + g1.local_0_start_;
                   int jglobal = jlocal;
                   int kglobal = klocal;
 
@@ -505,19 +486,19 @@ public:
     g4.FourierTransformForward();
 
     #pragma omp parallel for 
-    for (size_t i = 0; i < g1.size(0); i++)
+    for (size_t i = 0; i < g0.size(0); i++)
     {
-      for (size_t j = 0; j < g1.size(1); j++)
+      for (size_t j = 0; j < g0.size(1); j++)
       {
-        for (size_t k = 0; k < g1.size(2); k++)
+        for (size_t k = 0; k < g0.size(2); k++)
         {
-          if (!g1.is_nyquist_mode(i, j, k))
+          if (!g0.is_nyquist_mode(i, j, k))
           {
-            auto kvec = g1.get_k<real_t>(i, j, k);
+            auto kvec = g0.get_k<real_t>(i, j, k);
 
-            auto argx = 0.5 * M_PI * kvec[0] / g.kny_[0];
-            auto argy = 0.5 * M_PI * kvec[1] / g.kny_[1];
-            auto argz = 0.5 * M_PI * kvec[2] / g.kny_[2];
+            auto argx = 0.5 * M_PI * kvec[0] / g0.kny_[0];
+            auto argy = 0.5 * M_PI * kvec[1] / g0.kny_[1];
+            auto argz = 0.5 * M_PI * kvec[2] / g0.kny_[2];
 
             auto fx = real_t(sinc(argx));
             auto gx = ccomplex_t(0.0, dsinc(argx));
@@ -529,19 +510,22 @@ public:
             auto y1(g1.kelem(i, j, k)), y2(g2.kelem(i, j, k)), y3(g3.kelem(i, j, k)), y4(g4.kelem(i, j, k));
 
             g0.kelem(i, j, k) += real_t(3.0) * (y1 * gx * gy * fz + y2 * fx * gy * gz + y3 * gx * fy * gz) + sqrt27 * y4 * gx * gy * gz;
-
-            // fix the overall minus w.r.t. the monofonic noise definition
-            g0.kelem(i, j, k ) *= -1.0;
           }
         }
       }
     }
 
-    // music::ilog.Print("\033[31mtiming [build panphasia field2]: %f s\033[0m", get_wtime() - tp);
-    // tp = get_wtime();
+    g1.reset();
+    g2.reset();
+    g3.reset();
+    g4.reset();
+
+    g.allocate();
+    g0.FourierInterpolateCopyTo( g );
+
     music::ilog.Print("time for calculating PANPHASIA field : %f s, %f µs/cell", get_wtime() - t1,
                           1e6 * (get_wtime() - t1) / g.global_size(0) / g.global_size(1) / g.global_size(2));
-    music::ilog.Print("PANPHASIA k-space statistices: mean Re = %f, std = %f", g0.mean(), g0.std());
+    music::ilog.Print("PANPHASIA k-space statistices: mean Re = %f, std = %f", g.mean(), g.std());
   }
 };
 

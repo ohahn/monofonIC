@@ -74,8 +74,9 @@ int main( int argc, char** argv )
     //------------------------------------------------------------------------------
     
 #if defined(USE_MPI)
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &CONFIG::MPI_thread_support);
-    CONFIG::MPI_threads_ok = CONFIG::MPI_thread_support >= MPI_THREAD_FUNNELED;
+    int thread_wanted = MPI_THREAD_MULTIPLE; // MPI_THREAD_FUNNELED
+    MPI_Init_thread(&argc, &argv, thread_wanted, &CONFIG::MPI_thread_support);
+    CONFIG::MPI_threads_ok = CONFIG::MPI_thread_support >= thread_wanted;
     MPI_Comm_rank(MPI_COMM_WORLD, &CONFIG::MPI_task_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &CONFIG::MPI_task_size);
     CONFIG::MPI_ok = true;
@@ -168,7 +169,7 @@ int main( int argc, char** argv )
     omp_set_num_threads(CONFIG::num_threads);
 #endif
 
-    // std::feclearexcept(FE_ALL_EXCEPT);
+    std::feclearexcept(FE_ALL_EXCEPT);
 
     //------------------------------------------------------------------------------
     // Write code configuration to screen

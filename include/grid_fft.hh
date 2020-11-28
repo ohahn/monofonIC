@@ -134,7 +134,7 @@ public:
     //! set all field elements to zero
     void zero() noexcept
     {
-#pragma omp parallel for
+        #pragma omp parallel for
         for (size_t i = 0; i < ntot_; ++i)
             data_[i] = 0.0;
     }
@@ -155,8 +155,8 @@ public:
         assert(this->n_[1] == g.n_[1]);
         assert(this->n_[2] == g.n_[2]);
 
-// now we can copy all the data over
-#pragma omp parallel for
+        // now we can copy all the data over
+        #pragma omp parallel for
         for (size_t i = 0; i < ntot_; ++i)
             data_[i] = g.data_[i];
     }
@@ -357,6 +357,7 @@ public:
         return val;
     }
 
+    
     inline ccomplex_t gradient( const int idim, std::array<size_t,3> ijk ) const
     {
         if( bdistributed ){
@@ -791,13 +792,17 @@ public:
         }
     }
 
+    //! perform a backwards Fourier transform
     void FourierTransformBackward(bool do_transform = true);
 
+    //! perform a forwards Fourier transform
     void FourierTransformForward(bool do_transform = true);
 
-    void ApplyNorm(void);
+    //! perform a copy operation between to FFT grids that might not be of the same size
+    void FourierInterpolateCopyTo( grid_fft_t &grid_to );
 
-    void FillRandomReal(unsigned long int seed = 123456ul);
+    //! normalise field
+    void ApplyNorm(void);
 
     void Write_to_HDF5(std::string fname, std::string datasetname) const;
 
