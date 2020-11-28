@@ -38,25 +38,19 @@ class nyx_output_plugin : public output_plugin
 protected:
 
   struct sim_header{
-    std::vector<int> dimensions;
-    std::vector<int> offset;
     float a_start;
     float dx;
     float h0;
     float omega_b;
     float omega_m;
     float omega_v;
-    float vfact;
     float boxlength;
-    int   particle_idx;
   };
 
   int n_data_items;
   std::vector<std::string> field_name;
   int f_lev;
   int ngrid;
-  uint32_t levelmin_;
-  uint32_t levelmax_;
   real_t lunit_, vunit_, munit_;
   std::vector<amrex::MultiFab*> mfs;
   std::vector<amrex::BoxArray> boxarrays;
@@ -94,7 +88,6 @@ public:
 	field_name[7] = "dm_vel_x";
 	field_name[8] = "dm_vel_y";
 	field_name[9] = "dm_vel_z";
-	the_sim_header.particle_idx = 4;
       }
     else
       {
@@ -104,11 +97,10 @@ public:
 	field_name[3] = "dm_vel_x";
 	field_name[4] = "dm_vel_y";
 	field_name[5] = "dm_vel_z";
-	the_sim_header.particle_idx = 0;
       }
 
     ngrid = int(cf_.get_value<int>("setup", "GridRes"));
-    f_lev = 0; //levelmax_-levelmin_;
+    f_lev = 0;
 
     mfs.resize(1);
     amrex::BoxArray   domainBoxArray(1);
@@ -121,18 +113,10 @@ public:
     int ngrow(0);
     mfs[0] = new amrex::MultiFab(domainBoxArray, dm, n_data_items, ngrow);
 
-    the_sim_header.dimensions.push_back( 1<<levelmin_ );
-    the_sim_header.dimensions.push_back( 1<<levelmin_ );
-    the_sim_header.dimensions.push_back( 1<<levelmin_ );
-
-    the_sim_header.offset.push_back( 0 );
-    the_sim_header.offset.push_back( 0 );
-    the_sim_header.offset.push_back( 0 );
-
     the_sim_header.a_start		= 1.0/(1.0+cf.get_value<double>("setup","zstart"));
-    the_sim_header.dx			= cf.get_value<double>("setup","BoxLength")/the_sim_header.dimensions[0]/(pcc->cosmo_param_["H0"]*0.01);
-    the_sim_header.boxlength=cf.get_value<double>("setup","BoxLength");
     the_sim_header.h0			= pcc->cosmo_param_["H0"]*0.01;
+    the_sim_header.boxlength            = cf.get_value<double>("setup","BoxLength")/the_sim_header.h0;
+    the_sim_header.dx			= the_sim_header.boxlength/ngrid;
 
     if( bhave_hydro )
       the_sim_header.omega_b		= pcc->cosmo_param_["Omega_b"];
@@ -141,10 +125,8 @@ public:
 
     the_sim_header.omega_m		= pcc->cosmo_param_["Omega_m"];
     the_sim_header.omega_v		= pcc->cosmo_param_["Omega_DE"];
-    //!!!WARING: currently vfact=0!!!
-    the_sim_header.vfact		= pcc->cosmo_param_["vfact"]*the_sim_header.h0;
 
-    //Fix these!
+    //Check these!
     lunit_ = 1.0;
     vunit_ = 1.0;
     munit_ = 1.0;
@@ -412,7 +394,7 @@ void nyx_output_plugin::writeLevelPlotFile (const	std::string&	dir,
 	os << 0 << ' '; //ProbLo
       os << '\n';
       for (int i = 0; i < BL_SPACEDIM; i++)
-	os << the_sim_header.boxlength/the_sim_header.h0 << ' '; //ProbHi
+	os << the_sim_header.boxlength << ' '; //ProbHi
       os << '\n';
       
       for (int i = 0; i < f_lev; i++)
@@ -434,7 +416,7 @@ void nyx_output_plugin::writeLevelPlotFile (const	std::string&	dir,
 	os << 0 << ' ';
       os << '\n';
       
-      double dx = the_sim_header.boxlength/ngrid/the_sim_header.h0;
+      double dx = the_sim_header.dx;
       for (int i = 0; i <= f_lev; i++)
 	{
 	  for (int k = 0; k < BL_SPACEDIM; k++)
@@ -470,7 +452,7 @@ void nyx_output_plugin::writeLevelPlotFile (const	std::string&	dir,
   os << 0 << '\n';
   
   double cellsize[3];
-  double dx = the_sim_header.boxlength/ngrid/the_sim_header.h0;
+  double dx = the_sim_header.dx;
   for (int n = 0; n < BL_SPACEDIM; n++)
     {
       cellsize[n] = dx;
@@ -583,7 +565,7 @@ void nyx_output_plugin::writeInputsFile( void )
   inputs << "nyx.n_particles      = " << ngrid << " " << ngrid << " " << ngrid << std::endl;
   inputs << "geometry.prob_lo     = 0 0 0" << std::endl;
   
-  double bl = the_sim_header.boxlength/the_sim_header.h0;
+  double bl = the_sim_header.boxlength;
   inputs << "geometry.prob_hi     = " << bl << " " << bl << " " << bl << std::endl;
   
   
