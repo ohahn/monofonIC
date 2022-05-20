@@ -52,7 +52,7 @@ public:
 
 private:
     static constexpr double REL_PRECISION = 1e-10;
-    interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_, F_of_a_, w_of_a_; // toma
+    interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_, E_of_a_, g_of_a_, Fa_of_a_, Fb_of_a_, ha_of_a_, hb_of_a_; // toma
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
 
     double m_n_s_, m_sqrtpnorm_;
@@ -88,9 +88,13 @@ private:
      * @param tab_D reference to STL vector for values D(a) with a from tab_a
      * @param tab_f reference to STL vector for values f(a)=dlog D / dlog a with a from tab_a
      */
-    void compute_growth( std::vector<double>& tab_a, std::vector<double>& tab_D, std::vector<double>& tab_f , std::vector<double>& tab_F, std::vector<double>& tab_w)
+    void compute_growth( std::vector<double>& tab_a, std::vector<double>& tab_D, std::vector<double>& tab_f, 
+                                                     std::vector<double>& tab_E, std::vector<double>& tab_g,
+                                                     std::vector<double>& tab_Fa, std::vector<double>& tab_ha,
+                                                     std::vector<double>& tab_Fb, std::vector<double>& tab_hb 
+                                                     )
     {
-        using v_t = vec_t<5, double>;
+        using v_t = vec_t<9, double>;
 
         // set ICs, very deep in radiation domination
         const double a0 = 1e-10;
@@ -99,12 +103,19 @@ private:
         const double t0 = 1.0 / (a0 * H_of_a(a0));
 
         // toma
-        // Second order growth
+        // second order growth
         // initialisation in EdS 
-        const double F0 =  3.0/7.0*a0*a0;
-        const double Fprime0 = 12.0/7.0*std::pow(a0,3.0/2.0);
+        const double E0 =  -3.0/7.0*a0*a0;
+        const double Eprime0 =  -12.0/7.0*std::pow(a0,3.0/2.0) ; 
 
-        v_t y0({a0, D0, Dprime0, F0, Fprime0});
+        // third order growth
+        const double Fa0 =  -1.0/3.0*a0*a0*a0 ;
+        const double Faprime0 = -2.0*std::pow(a0,5.0/2.0);
+
+        const double Fb0 = 10./21*a0*a0*a0;
+        const double Fbprime0 = 60/21*std::pow(a0,5.0/2.0);
+
+        v_t y0({a0, D0, Dprime0, E0, Eprime0, Fa0, Faprime0, Fb0, Fbprime0});
 
         // set up integration
         double dt = 1e-9;
@@ -124,8 +135,16 @@ private:
                 auto a = y[0];
                 auto D = y[1];
                 auto Dprime = y[2];
-                auto F = y[3]; 
-                auto Fprime = y[4]; 
+
+                auto E = y[3]; 
+                auto Eprime = y[4]; 
+
+                auto Fa = y[5]; 
+                auto Faprime = y[6]; 
+
+                auto Fb = y[7]; 
+                auto Fbprime = y[8]; 
+
                 v_t dy;
                 // da/dtau = a^2 H(a)
                 dy[0] = a * a * H_of_a(a);
@@ -135,22 +154,36 @@ private:
                 dy[2] = -a * H_of_a(a) * Dprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * D / a;
 
                 // toma
-                dy[3] = Fprime; 
-                dy[4] = -a * H_of_a(a) * Fprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (F+D*D) / a; 
+                dy[3] = Eprime; 
+                dy[4] = -a * H_of_a(a) * Eprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (E-D*D) / a; 
+
+                dy[5] = Faprime; 
+                dy[6] = -a * H_of_a(a) * Faprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (Fa-2.0*D*D*D) / a;
+
+                dy[7] = Fbprime;
+                dy[8] = -a * H_of_a(a) * Fbprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (Fb + 2.0*D*D*D - 2.0*E*D) / a;
                 return dy;
             };
 
             // scale by predicted value to get approx. constant fractional errors
             v_t yyscale = yy.abs() + dt * rhs(t, yy).abs();
+
             
             // call integrator
             ode_integrate::rk_step_qs(dt, t, yy, yyscale, rhs, eps, dtdid, dtnext);
 
+
             tab_a.push_back(yy[0]);
             tab_D.push_back(yy[1]);
             tab_f.push_back(yy[2]); // temporarily store D' in table
-            tab_F.push_back(yy[3]); // toma
-            tab_w.push_back(yy[4]); // temporarily store F' in table
+            tab_E.push_back(yy[3]); // toma
+            tab_g.push_back(yy[4]); // temporarily store E' in table
+
+            tab_Fa.push_back(yy[5]); // 
+            tab_ha.push_back(yy[6]); // temporarily store Fa' in table
+
+            tab_Fb.push_back(yy[7]); // 
+            tab_hb.push_back(yy[8]); // temporarily store Fb' in table
 
             dt = dtnext;
         }
@@ -158,17 +191,25 @@ private:
         std::ofstream output_file;
         output_file.open("GrowthFactors.txt");
         // compute f, before we stored here D'
-        output_file << "#" << "a" <<" "<< "D"  << " " <<  "f" << " " << "F" << " " << "w" <<"\n";
+        output_file << "#" << "a" <<" "<< "D"  << " " <<  "f" << " " << "E" << " " << "g" << " " << "Fa" << " " << "ha"  <<  " " <<  "Fb" << " " << "hb" <<"\n";
         for (size_t i = 0; i < tab_a.size(); ++i)
         {
-            tab_f[i] = tab_f[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i]);
-            tab_w[i] = 7.0/6.0 * tab_w[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i] * tab_D[i]); // toma
-            tab_D[i] = tab_D[i];
-            tab_F[i] = tab_F[i]; // toma
-            tab_a[i] = tab_a[i];
+            tab_f[i]  = tab_f[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i]);
+
+            tab_g[i]  = -7.0/6.0 * tab_g[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i] * tab_D[i]); // toma
+
+            tab_ha[i] = - tab_ha[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i] * tab_D[i]); // toma
+            tab_hb[i] = 7.0/10.0 * tab_hb[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i] * tab_D[i]); // toma
+
+            tab_D[i]  = tab_D[i];
+            tab_E[i]  = tab_E[i]; // toma
+            tab_Fa[i] = tab_Fa[i]; // toma
+            tab_Fb[i] = tab_Fb[i]; // toma
+            tab_a[i]  = tab_a[i];
 
             //toma
-            output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_F[i] << " " << tab_w[i] <<"\n";
+            output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_E[i] << " " << tab_g[i] << " " << tab_Fa[i] << " " << tab_ha[i] << " " <<  tab_Fb[i] << " " << tab_hb[i] <<"\n";
+            //output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_E[i] << " " << tab_g[i] << " " << tab_Fa[i] << " " << tab_ha[i] << "\n";
         }
         output_file.close();
     }
@@ -189,15 +230,21 @@ public:
             atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",0.0)) )
     {
         // pre-compute growth factors and store for interpolation
-        std::vector<double> tab_a, tab_D, tab_f, tab_F, tab_w;  // toma
-        this->compute_growth(tab_a, tab_D, tab_f, tab_F, tab_w); // toma
+        std::vector<double> tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_ha, tab_Fb, tab_hb;  // toma
+        this->compute_growth(tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_ha, tab_Fb, tab_hb); // toma
         D_of_a_.set_data(tab_a,tab_D);
         f_of_a_.set_data(tab_a,tab_f);
         a_of_D_.set_data(tab_D,tab_a);
 
         // toma
-        F_of_a_.set_data(tab_a,tab_F);
-        w_of_a_.set_data(tab_a,tab_w);
+        E_of_a_.set_data(tab_a,tab_E);
+        g_of_a_.set_data(tab_a,tab_g);
+
+
+        Fa_of_a_.set_data(tab_a,tab_Fa);
+        Fb_of_a_.set_data(tab_a,tab_Fb);
+        ha_of_a_.set_data(tab_a,tab_ha);
+        hb_of_a_.set_data(tab_a,tab_hb);
 
         Dnow_ = D_of_a_(1.0);
 
@@ -331,7 +378,7 @@ public:
     inline double H_of_a(double a) const noexcept
     {
         double HH2 = 0.0;
-        HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
+        //HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
         HH2 += cosmo_param_["Omega_m"] / (a * a * a);
         HH2 += cosmo_param_["Omega_k"] / (a * a);
         HH2 += cosmo_param_["Omega_DE"] * std::pow(a, -3. * (1. + cosmo_param_["w_0"] + cosmo_param_["w_a"])) * exp(-3. * (1.0 - a) * cosmo_param_["w_a"]);
@@ -370,18 +417,43 @@ public:
 
 
     // toma
-    //! get F
+    //! get E
     real_t get_2growth_factor(real_t a) const noexcept
     {
-        return F_of_a_(a);
+        return E_of_a_(a);
     }
 
     // toma
     //! compute the factors w
-    real_t get_w(real_t a) const noexcept
+    real_t get_g(real_t a) const noexcept
     {
-        return w_of_a_(a);
+        return g_of_a_(a);
     }
+
+    real_t get_3growthA_factor(real_t a) const noexcept
+    {
+        return Fa_of_a_(a);
+    }
+
+
+    real_t get_3growthB_factor(real_t a) const noexcept
+    {
+        return Fb_of_a_(a);
+    }
+
+    real_t get_ha(real_t a) const noexcept
+    {
+        return ha_of_a_(a);
+    }
+
+    real_t get_hb(real_t a) const noexcept
+    {
+        return hb_of_a_(a);
+    }
+
+
+
+
 
     //! Integrand for the sigma_8 normalization of the power spectrum
     /*! Returns the value of the primordial power spectrum multiplied with 
