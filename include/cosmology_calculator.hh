@@ -52,7 +52,7 @@ public:
 
 private:
     static constexpr double REL_PRECISION = 1e-10;
-    interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_, E_of_a_, g_of_a_, Fa_of_a_, Fb_of_a_, ha_of_a_, hb_of_a_; // toma
+    interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_, E_of_a_, g_of_a_, Fa_of_a_, Fb_of_a_, dotFa_of_a_, dotFb_of_a_, Fc_of_a_, dotFc_of_a_; // toma
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
 
     double m_n_s_, m_sqrtpnorm_;
@@ -90,11 +90,12 @@ private:
      */
     void compute_growth( std::vector<double>& tab_a, std::vector<double>& tab_D, std::vector<double>& tab_f, 
                                                      std::vector<double>& tab_E, std::vector<double>& tab_g,
-                                                     std::vector<double>& tab_Fa, std::vector<double>& tab_ha,
-                                                     std::vector<double>& tab_Fb, std::vector<double>& tab_hb 
+                                                     std::vector<double>& tab_Fa, std::vector<double>& tab_dotFa,
+                                                     std::vector<double>& tab_Fb, std::vector<double>& tab_dotFb, 
+                                                     std::vector<double>& tab_Fc, std::vector<double>& tab_dotFc 
                                                      )
     {
-        using v_t = vec_t<9, double>;
+        using v_t = vec_t<10, double>;
 
         // set ICs, very deep in radiation domination
         const double a0 = 1e-10;
@@ -115,7 +116,9 @@ private:
         const double Fb0 = 10./21*a0*a0*a0;
         const double Fbprime0 = 60/21*std::pow(a0,5.0/2.0);
 
-        v_t y0({a0, D0, Dprime0, E0, Eprime0, Fa0, Faprime0, Fb0, Fbprime0});
+        const double Fc0 = -1.0/7.0*a0*a0*a0;
+
+        v_t y0({a0, D0, Dprime0, E0, Eprime0, Fa0, Faprime0, Fb0, Fbprime0, Fc0});
 
         // set up integration
         double dt = 1e-9;
@@ -162,6 +165,9 @@ private:
 
                 dy[7] = Fbprime;
                 dy[8] = -a * H_of_a(a) * Fbprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (Fb + 2.0*D*D*D - 2.0*E*D) / a;
+
+                dy[9] = D*Eprime-E*Dprime;
+
                 return dy;
             };
 
@@ -180,10 +186,13 @@ private:
             tab_g.push_back(yy[4]); // temporarily store E' in table
 
             tab_Fa.push_back(yy[5]); // 
-            tab_ha.push_back(yy[6]); // temporarily store Fa' in table
+            tab_dotFa.push_back(yy[6]); // temporarily store Fa' in table
 
             tab_Fb.push_back(yy[7]); // 
-            tab_hb.push_back(yy[8]); // temporarily store Fb' in table
+            tab_dotFb.push_back(yy[8]); // temporarily store Fb' in table
+
+            tab_Fc.push_back(yy[9]); // 
+            tab_dotFc.push_back(yy[9]); // temporarily store un-important random value 
 
             dt = dtnext;
         }
@@ -191,25 +200,22 @@ private:
         std::ofstream output_file;
         output_file.open("GrowthFactors.txt");
         // compute f, before we stored here D'
-        output_file << "#" << "a" <<" "<< "D"  << " " <<  "f" << " " << "E" << " " << "g" << " " << "Fa" << " " << "ha"  <<  " " <<  "Fb" << " " << "hb" <<"\n";
+        output_file << "#" << "a" <<" "<< "D"  << " " <<  "f" << " " << "E" << " " << "g" << " " << "Fa" << " " << "dotFa"  <<  " " <<  "Fb" << " " << "dotFb" << " " <<"Fc" << " " << "dotFc" <<"\n";
         for (size_t i = 0; i < tab_a.size(); ++i)
         {
+
+            //tab_D[i]  = tab_D[i];
+            //tab_E[i]  = tab_E[i]; // toma
+            //tab_Fa[i] = tab_Fa[i]; // toma
+            //tab_Fb[i] = tab_Fb[i]; // toma
+            //tab_Fc[i] = tab_Fc[i]; // toma
+            //tab_a[i]  = tab_a[i];
+            tab_dotFc[i] = (tab_D[i]*tab_g[i] - tab_E[i]*tab_f[i]); // toma
             tab_f[i]  = tab_f[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i]);
 
-            tab_g[i]  = -7.0/6.0 * tab_g[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i] * tab_D[i]); // toma
-
-            tab_ha[i] = - tab_ha[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i] * tab_D[i]); // toma
-            tab_hb[i] = 7.0/10.0 * tab_hb[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i] * tab_D[i]); // toma
-
-            tab_D[i]  = tab_D[i];
-            tab_E[i]  = tab_E[i]; // toma
-            tab_Fa[i] = tab_Fa[i]; // toma
-            tab_Fb[i] = tab_Fb[i]; // toma
-            tab_a[i]  = tab_a[i];
 
             //toma
-            output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_E[i] << " " << tab_g[i] << " " << tab_Fa[i] << " " << tab_ha[i] << " " <<  tab_Fb[i] << " " << tab_hb[i] <<"\n";
-            //output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_E[i] << " " << tab_g[i] << " " << tab_Fa[i] << " " << tab_ha[i] << "\n";
+            output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_E[i] << " " << tab_g[i] << " " << tab_Fa[i] << " " << tab_dotFa[i] << " " <<  tab_Fb[i] << " " << tab_dotFb[i]  << " " <<  tab_Fc[i] << " " << tab_dotFc[i] << "\n";
         }
         output_file.close();
     }
@@ -230,8 +236,8 @@ public:
             atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",0.0)) )
     {
         // pre-compute growth factors and store for interpolation
-        std::vector<double> tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_ha, tab_Fb, tab_hb;  // toma
-        this->compute_growth(tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_ha, tab_Fb, tab_hb); // toma
+        std::vector<double> tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_dotFa, tab_Fb, tab_dotFb, tab_Fc, tab_dotFc;  // toma
+        this->compute_growth(tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_dotFa, tab_Fb, tab_dotFb, tab_Fc, tab_dotFc); // toma
         D_of_a_.set_data(tab_a,tab_D);
         f_of_a_.set_data(tab_a,tab_f);
         a_of_D_.set_data(tab_D,tab_a);
@@ -243,8 +249,10 @@ public:
 
         Fa_of_a_.set_data(tab_a,tab_Fa);
         Fb_of_a_.set_data(tab_a,tab_Fb);
-        ha_of_a_.set_data(tab_a,tab_ha);
-        hb_of_a_.set_data(tab_a,tab_hb);
+        Fc_of_a_.set_data(tab_a,tab_Fc);
+        dotFa_of_a_.set_data(tab_a,tab_dotFa);
+        dotFb_of_a_.set_data(tab_a,tab_dotFb);
+        dotFc_of_a_.set_data(tab_a,tab_dotFc);
 
         Dnow_ = D_of_a_(1.0);
 
@@ -378,7 +386,7 @@ public:
     inline double H_of_a(double a) const noexcept
     {
         double HH2 = 0.0;
-        //HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
+        HH2 += cosmo_param_["Omega_r"] / (a * a * a * a);
         HH2 += cosmo_param_["Omega_m"] / (a * a * a);
         HH2 += cosmo_param_["Omega_k"] / (a * a);
         HH2 += cosmo_param_["Omega_DE"] * std::pow(a, -3. * (1. + cosmo_param_["w_0"] + cosmo_param_["w_a"])) * exp(-3. * (1.0 - a) * cosmo_param_["w_a"]);
@@ -441,15 +449,27 @@ public:
         return Fb_of_a_(a);
     }
 
-    real_t get_ha(real_t a) const noexcept
+    real_t get_3growthC_factor(real_t a) const noexcept
     {
-        return ha_of_a_(a);
+        return Fc_of_a_(a);
     }
 
-    real_t get_hb(real_t a) const noexcept
+
+    real_t get_dotFa(real_t a) const noexcept
     {
-        return hb_of_a_(a);
+        return dotFa_of_a_(a);
     }
+
+    real_t get_dotFb(real_t a) const noexcept
+    {
+        return dotFb_of_a_(a);
+    }
+
+    real_t get_dotFc(real_t a) const noexcept
+    {
+        return dotFc_of_a_(a);
+    }
+
 
 
 
