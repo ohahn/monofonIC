@@ -193,6 +193,7 @@ int run( config_file& the_config )
     // Compute LPT time coefficients
     //--------------------------------------------------------------------
     const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
+
     const real_t vfac   = the_cosmo_calc->get_vfact(astart);
 
     const real_t g1  = -Dplus0;
