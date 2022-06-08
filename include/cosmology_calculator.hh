@@ -52,7 +52,7 @@ public:
 
 private:
     static constexpr double REL_PRECISION = 1e-10;
-    interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_, E_of_a_, g_of_a_, Fa_of_a_, Fb_of_a_, dotFa_of_a_, dotFb_of_a_, Fc_of_a_, dotFc_of_a_; // toma
+    interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_, E_of_a_, dotE_of_a_, Fa_of_a_, Fb_of_a_, dotFa_of_a_, dotFb_of_a_, Fc_of_a_, dotFc_of_a_; // toma
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
 
     double m_n_s_, m_sqrtpnorm_;
@@ -89,7 +89,7 @@ private:
      * @param tab_f reference to STL vector for values f(a)=dlog D / dlog a with a from tab_a
      */
     void compute_growth( std::vector<double>& tab_a, std::vector<double>& tab_D, std::vector<double>& tab_f, 
-                                                     std::vector<double>& tab_E, std::vector<double>& tab_g,
+                                                     std::vector<double>& tab_E, std::vector<double>& tab_dotE,
                                                      std::vector<double>& tab_Fa, std::vector<double>& tab_dotFa,
                                                      std::vector<double>& tab_Fb, std::vector<double>& tab_dotFb, 
                                                      std::vector<double>& tab_Fc, std::vector<double>& tab_dotFc 
@@ -182,16 +182,16 @@ private:
             tab_a.push_back(yy[0]);
             tab_D.push_back(yy[1]);
             tab_f.push_back(yy[2]); // temporarily store D' in table
-            tab_E.push_back(yy[3]); // toma
-            tab_g.push_back(yy[4]); // temporarily store E' in table
+            tab_E.push_back(yy[3]);// toma
+            tab_dotE.push_back(yy[4]); 
 
-            tab_Fa.push_back(yy[5]); // 
-            tab_dotFa.push_back(yy[6]); // temporarily store Fa' in table
+            tab_Fa.push_back(yy[5]);  
+            tab_dotFa.push_back(yy[6]); 
 
-            tab_Fb.push_back(yy[7]); // 
-            tab_dotFb.push_back(yy[8]); // temporarily store Fb' in table
+            tab_Fb.push_back(yy[7]);  
+            tab_dotFb.push_back(yy[8]); 
 
-            tab_Fc.push_back(yy[9]); // 
+            tab_Fc.push_back(yy[9]);  
             tab_dotFc.push_back(yy[9]); // temporarily store un-important random value 
 
             dt = dtnext;
@@ -200,22 +200,15 @@ private:
         std::ofstream output_file;
         output_file.open("GrowthFactors.txt");
         // compute f, before we stored here D'
-        output_file << "#" << "a" <<" "<< "D"  << " " <<  "f" << " " << "E" << " " << "g" << " " << "Fa" << " " << "dotFa"  <<  " " <<  "Fb" << " " << "dotFb" << " " <<"Fc" << " " << "dotFc" <<"\n";
+        output_file << "#" << "a" <<" "<< "D"  << " " <<  "f" << " " << "E" << " " << "dotE" << " " << "Fa" << " " << "dotFa"  <<  " " <<  "Fb" << " " << "dotFb" << " " <<"Fc" << " " << "dotFc" <<"\n";
         for (size_t i = 0; i < tab_a.size(); ++i)
         {
 
-            //tab_D[i]  = tab_D[i];
-            //tab_E[i]  = tab_E[i]; // toma
-            //tab_Fa[i] = tab_Fa[i]; // toma
-            //tab_Fb[i] = tab_Fb[i]; // toma
-            //tab_Fc[i] = tab_Fc[i]; // toma
-            //tab_a[i]  = tab_a[i];
-            tab_dotFc[i] = (tab_D[i]*tab_g[i] - tab_E[i]*tab_f[i]); // toma
+            tab_dotFc[i] = (tab_D[i]*tab_dotE[i] - tab_E[i]*tab_f[i]); // toma
             tab_f[i]  = tab_f[i] / (tab_a[i] * H_of_a(tab_a[i]) * tab_D[i]);
 
-
             //toma
-            output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_E[i] << " " << tab_g[i] << " " << tab_Fa[i] << " " << tab_dotFa[i] << " " <<  tab_Fb[i] << " " << tab_dotFb[i]  << " " <<  tab_Fc[i] << " " << tab_dotFc[i] << "\n";
+            output_file << tab_a[i] <<" "<< tab_D[i]  << " " <<  tab_f[i] << " " << tab_E[i] << " " << tab_dotE[i] << " " << tab_Fa[i] << " " << tab_dotFa[i] << " " <<  tab_Fb[i] << " " << tab_dotFb[i]  << " " <<  tab_Fc[i] << " " << tab_dotFc[i] << "\n";
         }
         output_file.close();
     }
@@ -236,15 +229,15 @@ public:
             atarget_( 1.0/(1.0+cf.get_value_safe<double>("cosmology","ztarget",0.0)) )
     {
         // pre-compute growth factors and store for interpolation
-        std::vector<double> tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_dotFa, tab_Fb, tab_dotFb, tab_Fc, tab_dotFc;  // toma
-        this->compute_growth(tab_a, tab_D, tab_f, tab_E, tab_g, tab_Fa, tab_dotFa, tab_Fb, tab_dotFb, tab_Fc, tab_dotFc); // toma
+        std::vector<double> tab_a, tab_D, tab_f, tab_E, tab_dotE, tab_Fa, tab_dotFa, tab_Fb, tab_dotFb, tab_Fc, tab_dotFc;  // toma
+        this->compute_growth(tab_a, tab_D, tab_f, tab_E, tab_dotE, tab_Fa, tab_dotFa, tab_Fb, tab_dotFb, tab_Fc, tab_dotFc); // toma
         D_of_a_.set_data(tab_a,tab_D);
         f_of_a_.set_data(tab_a,tab_f);
         a_of_D_.set_data(tab_D,tab_a);
 
         // toma
         E_of_a_.set_data(tab_a,tab_E);
-        g_of_a_.set_data(tab_a,tab_g);
+        dotE_of_a_.set_data(tab_a,tab_dotE);
 
 
         Fa_of_a_.set_data(tab_a,tab_Fa);
@@ -428,46 +421,46 @@ public:
     //! get E
     real_t get_2growth_factor(real_t a) const noexcept
     {
-        return E_of_a_(a);
+        return E_of_a_(a) / Dnow_ / Dnow_;
     }
 
     // toma
     //! compute the factors w
-    real_t get_g(real_t a) const noexcept
+    real_t get_dotE(real_t a) const noexcept
     {
-        return g_of_a_(a);
+        return dotE_of_a_(a) / Dnow_ ;
     }
 
     real_t get_3growthA_factor(real_t a) const noexcept
     {
-        return Fa_of_a_(a);
+        return Fa_of_a_(a)/ Dnow_ / Dnow_ / Dnow_ ;
     }
 
 
     real_t get_3growthB_factor(real_t a) const noexcept
     {
-        return Fb_of_a_(a);
+        return Fb_of_a_(a)/ Dnow_ / Dnow_ / Dnow_ ;
     }
 
     real_t get_3growthC_factor(real_t a) const noexcept
     {
-        return Fc_of_a_(a);
+        return Fc_of_a_(a)/ Dnow_ / Dnow_ / Dnow_ ;
     }
 
 
     real_t get_dotFa(real_t a) const noexcept
     {
-        return dotFa_of_a_(a);
+        return dotFa_of_a_(a)/ Dnow_ / Dnow_ ;
     }
 
     real_t get_dotFb(real_t a) const noexcept
     {
-        return dotFb_of_a_(a);
+        return dotFb_of_a_(a)/ Dnow_ / Dnow_ ;
     }
 
     real_t get_dotFc(real_t a) const noexcept
     {
-        return dotFc_of_a_(a);
+        return dotFc_of_a_(a)/ Dnow_ / Dnow_ ;
     }
 
 

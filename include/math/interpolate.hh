@@ -31,6 +31,7 @@ private:
   std::vector<double> data_x_, data_y_;
   gsl_interp_accel *gsl_ia_;
   gsl_spline *gsl_sp_;
+  double min_val = 0. ; // TOMA
 
   void deallocate()
   {
@@ -57,8 +58,17 @@ public:
 
   void set_data(const std::vector<double> &data_x, const std::vector<double> &data_y)
   {
+    // TOMA
+    min_val = *std::min_element(data_y.begin(), data_y.end()) -1.0;
+
     data_x_ = data_x;
     data_y_ = data_y;
+
+    for (size_t i=0; i< data_y.size(); i++) //TOMA
+    {
+        data_y_[i] = data_y_[i] - min_val;
+    }
+
     
     assert(data_x_.size() == data_y_.size());
     assert(data_x_.size() > 5);
@@ -80,6 +90,7 @@ public:
     assert( isinit_ && !(logx&&x<=0.0) );
     const double xa = logx ? std::log(x) : x;
     const double y(gsl_spline_eval(gsl_sp_, xa, gsl_ia_));
-    return logy ? std::exp(y) : y;
+    return logy ? std::exp(y) + min_val : y + min_val;
+    //return logy ? std::exp(y) : y;
   }
 };

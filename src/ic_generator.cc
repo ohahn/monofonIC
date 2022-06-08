@@ -194,19 +194,31 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------
     const real_t Dplus0 = the_cosmo_calc->get_growth_factor(astart);
 
+    const real_t E0 = the_cosmo_calc->get_2growth_factor(astart);
+    const real_t Fa0 = the_cosmo_calc->get_3growthA_factor(astart);
+    const real_t Fb0 = the_cosmo_calc->get_3growthB_factor(astart);
+    const real_t Fc0 = the_cosmo_calc->get_3growthC_factor(astart);
+
     const real_t vfac   = the_cosmo_calc->get_vfact(astart);
 
     const real_t g1  = -Dplus0;
-    const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
-    const real_t g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
-    const real_t g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    // const real_t g2  = ((LPTorder>1)? -3.0/7.0*Dplus0*Dplus0 : 0.0);
+    // const real_t g3  = ((LPTorder>2)? 1.0/3.0*Dplus0*Dplus0*Dplus0 : 0.0);
+    // const real_t g3c = ((LPTorder>2)? 1.0/7.0*Dplus0*Dplus0*Dplus0 : 0.0);
+   
+    const real_t g2  = ((LPTorder>1)? E0 : 0.0);
+    const real_t g3a = ((LPTorder>2)? Fa0 : 0.0);
+    const real_t g3b = ((LPTorder>2)? Fb0 : 0.0);
+    const real_t g3c = ((LPTorder>2)? Fc0: 0.0);
 
     // vfac = d log D+ / dt 
-    // d(D+^2)/dt = 2*D+ * d D+/dt = 2 * D+^2 * vfac
-    // d(D+^3)/dt = 3*D+^2* d D+/dt = 3 * D+^3 * vfac
-    const real_t vfac1 =  vfac;
-    const real_t vfac2 =  2*vfac;
-    const real_t vfac3 =  3*vfac;
+    const real_t vfac1  = vfac;
+    const real_t vfac2  = the_cosmo_calc->get_dotE(astart)  / E0 ; // 2*vfac;
+    const real_t vfac3a = the_cosmo_calc->get_dotFa(astart) / Fa0; // 3*vfac;
+    const real_t vfac3b = the_cosmo_calc->get_dotFb(astart) / Fb0; // 3*vfac;
+    const real_t vfac3c = the_cosmo_calc->get_dotFc(astart) / Fc0; // 3*vfac;
+
+    // std::cout << g2 << " " << g3a << " " << g3b << " " << g3c << " " << vfac2  << " " << vfac3a  << " " << vfac3b  << " " << vfac3c   << std::endl;
 
     // anisotropic velocity growth factor for external tides
     // cf. eq. (5) of Stuecker et al. 2020 (https://arxiv.org/abs/2003.06427)
@@ -234,7 +246,8 @@ int run( config_file& the_config )
     //... Next, declare LPT related arrays, allocated only as needed by order
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // do not allocate these unless needed
-    Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
+    Grid_FFT<real_t> phi3a({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
+    Grid_FFT<real_t> phi3b({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
     Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
     Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
     Grid_FFT<real_t> A3z({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
@@ -412,33 +425,36 @@ int run( config_file& the_config )
     //======================================================================
     if (LPTorder > 2)
     {
-        phi3.allocate();
-        phi3.FourierTransformForward(false);
+        phi3a.allocate();
+        phi3a.FourierTransformForward(false);
 
         
         //... phi3 = phi3a - 10/7 phi3b
         //... 3a term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
-        Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3));
-        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3,2.0));
-        Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3));
-        Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3));
-        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3));
-        // phi3a.apply_InverseLaplacian();
+        Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3a));
+        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3a,2.0));
+        Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3a));
+        Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3a));
+        Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3a));
+        phi3a.apply_InverseLaplacian();
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
         //... 3b term ...
         wtime = get_wtime();
         music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
-        // phi3b.FourierTransformForward(false);
-        Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::multiply_add_to(phi3,-5.0/7.0));
-        Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::multiply_add_to(phi3,-5.0/7.0));
-        Conv.convolve_SumOfHessians(phi, {2, 2}, phi2, {0, 0}, {1, 1}, op::multiply_add_to(phi3,-5.0/7.0));
-        Conv.convolve_Hessians(phi, {0, 1}, phi2, {0, 1}, op::multiply_add_to(phi3,+10.0/7.0));
-        Conv.convolve_Hessians(phi, {0, 2}, phi2, {0, 2}, op::multiply_add_to(phi3,+10.0/7.0));
-        Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::multiply_add_to(phi3,+10.0/7.0));
-        phi3.apply_InverseLaplacian();
+
+        phi3b.allocate();
+        phi3b.FourierTransformForward(false);
+        Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::assign_to(phi3b));
+        phi3b *= -5.0/7.0;
+        Conv.convolve_SumOfHessians(phi, {1, 1}, phi2, {2, 2}, {0, 0}, op::multiply_add_to(phi3b,-5.0/7.0));
+        Conv.convolve_SumOfHessians(phi, {2, 2}, phi2, {0, 0}, {1, 1}, op::multiply_add_to(phi3b,-5.0/7.0));
+        Conv.convolve_Hessians(phi, {0, 1}, phi2, {0, 1}, op::multiply_add_to(phi3b,+10.0/7.0));
+        Conv.convolve_Hessians(phi, {0, 2}, phi2, {0, 2}, op::multiply_add_to(phi3b,+10.0/7.0));
+        Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::multiply_add_to(phi3b,+10.0/7.0));
+        phi3b.apply_InverseLaplacian();
         //phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
         music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
 
@@ -470,11 +486,14 @@ int run( config_file& the_config )
     
     if (LPTorder > 2)
     {
-        phi3 *= g3;
+        phi3a *= g3a;
+        phi3b *= g3b;
+
         (*A3[0]) *= g3c;
         (*A3[1]) *= g3c;
         (*A3[2]) *= g3c;
     }
+
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
 
@@ -487,15 +506,16 @@ int run( config_file& the_config )
 
     if (testing != "none")
     {
+        // TOMA need to add phib
         music::wlog << "you are running in testing mode. No ICs, only diagnostic output will be written out!" << std::endl;
         if (testing == "potentials_and_densities"){
-            testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3, A3);
+            testing::output_potentials_and_densities(the_config, ngrid, boxlen, phi, phi2, phi3a, A3);
         }
         else if (testing == "velocity_displacement_symmetries"){
-            testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3, A3);
+            testing::output_velocity_displacement_symmetries(the_config, ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, A3);
         }
         else if (testing == "convergence"){
-            testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3, A3);
+            testing::output_convergence(the_config, the_cosmo_calc.get(), ngrid, boxlen, vfac, Dplus0, phi, phi2, phi3a, A3);
         }
         else{
             music::flog << "unknown test '" << testing << "'" << std::endl;
@@ -715,7 +735,8 @@ int run( config_file& the_config )
                     phi2.FourierTransformForward();
                 }
                 if( LPTorder > 2 ){
-                    phi3.FourierTransformForward();
+                    phi3a.FourierTransformForward();
+                    phi3b.FourierTransformForward();
                     A3[0]->FourierTransformForward();
                     A3[1]->FourierTransformForward();
                     A3[2]->FourierTransformForward();
@@ -743,7 +764,8 @@ int run( config_file& the_config )
                                 }
 
                                 if( LPTorder > 2 ){
-                                    phitot += phi3.kelem(idx);
+                                    phitot += phi3a.kelem(idx);
+                                    phitot += phi3b.kelem(idx);
                                 }
 
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot;
@@ -799,13 +821,13 @@ int run( config_file& the_config )
                                 }
 
                                 if( LPTorder > 2 ){
-                                    phitot_v += vfac3 * phi3.kelem(idx);
+                                    phitot_v += vfac3a * phi3a.kelem(idx) + vfac3b * phi3b.kelem(idx);
                                 }
                                 
                                 tmp.kelem(idx) = lg.gradient(idim,tmp.get_k3(i,j,k)) * phitot_v;
                                 
                                 if( LPTorder > 2 ){
-                                    tmp.kelem(idx) += vfac3 * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
+                                    tmp.kelem(idx) += vfac3c * (lg.gradient(idimp,tmp.get_k3(i,j,k)) * A3[idimpp]->kelem(idx) - lg.gradient(idimpp,tmp.get_k3(i,j,k)) * A3[idimp]->kelem(idx));
                                 }
 
                                 // if multi-species, then add vbc component backwards
