@@ -27,7 +27,8 @@
 #endif
 
 #include <general.hh>
-#include <ic_generator.hh>
+#include <module_ic_generator.hh>
+#include <module_ppt_forward.hh>
 #include <cosmology_parameters.hh>
 #include <particle_plt.hh>
 
@@ -236,7 +237,8 @@ int main( int argc, char** argv )
     // Initialise plug-ins
     try
     {
-        ic_generator::initialise( the_config );
+        // ic_generator::initialise( the_config );
+        ppt_forward_model::initialise( the_config );
     }catch(...){
         handle_eptr( std::current_exception() );
         music::elog << "Problem during initialisation. See error(s) above. Exiting..." << std::endl;
@@ -250,13 +252,15 @@ int main( int argc, char** argv )
 
     ///////////////////////////////////////////////////////////////////////
     // do the job...
-    ic_generator::run( the_config );
+    // ic_generator::run( the_config );
+    ppt_forward_model::run( the_config );
     ///////////////////////////////////////////////////////////////////////
 
 
     ///////////////////////////////////////////////////////////////////////
     // call the destructor of plugins before tearing down MPI
-    ic_generator::reset();
+    // ic_generator::reset();
+    ppt_forward_model::reset();
     ///////////////////////////////////////////////////////////////////////
 
 

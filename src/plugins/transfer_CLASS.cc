@@ -28,7 +28,7 @@
 #include <general.hh>
 #include <config_file.hh>
 #include <transfer_function_plugin.hh>
-#include <ic_generator.hh>
+// #include <ic_generator.hh>
 
 #include <math/interpolate.hh>
 
