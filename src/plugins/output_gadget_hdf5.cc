@@ -2,17 +2,17 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn
-// 
+//
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // monofonIC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifdef USE_HDF5
@@ -122,8 +122,8 @@ public:
   // use destructor to write header post factum
   ~gadget_hdf5_output_plugin()
   {
-    if (!std::uncaught_exception()) 
-    {   
+    if (!std::uncaught_exception())
+    {
       HDFCreateGroup(this_fname_, "Header");
       HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(header_.npart));
       HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_6array<double>(header_.mass));
@@ -144,6 +144,14 @@ public:
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Entropy_ICs", from_value<int>(header_.flag_entropy_instead_u));
 
       music::ilog << "Wrote Gadget-HDF5 file(s) to " << this_fname_ << std::endl;
+
+      music::ilog << "You can use the following values in param.txt:" << std::endl;
+      music::ilog << "Omega0       " << header_.Omega0 << std::endl;
+      music::ilog << "OmegaLambda  " << header_.OmegaLambda << std::endl;
+      music::ilog << "OmegaBaryon  " << pcc_->cosmo_param_["Omega_b"] << std::endl;
+      music::ilog << "HubbleParam  " << header_.HubbleParam << std::endl;
+      music::ilog << "Hubble       100.0" <<  std::endl;
+      music::ilog << "BoxSize      " << header_.BoxSize <<  std::endl;
     }
   }
 
