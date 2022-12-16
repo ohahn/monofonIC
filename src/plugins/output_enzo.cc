@@ -121,13 +121,14 @@ protected:
       HDFCreateFile(filename);
       write_sim_header(filename, the_sim_header);
 
-#ifdef SINGLE_PRECISION
+
+#if defined(USE_PRECISION_FLOAT)
       //... create full array in file
       HDFHyperslabWriter3Ds<float> *slab_writer = new HDFHyperslabWriter3Ds<float>(filename, enzoname, nsz);
 
       //... create buffer
       float *data_buf = new float[slices_in_slab * (size_t)ng[0] * (size_t)ng[1]];
-#else
+#elif defined(USE_PRECISION_DOUBLE)
       //... create full array in file
       HDFHyperslabWriter3Ds<double> *slab_writer = new HDFHyperslabWriter3Ds<double>(filename, enzoname, nsz);
 
@@ -203,7 +204,7 @@ public:
       music::elog << "ENZO output plugin currently does not support MPI. Please run using a single task only!" << std::endl;
       throw std::runtime_error("Error in enzo_output_plugin!");
     }
-    
+
     if (CONFIG::MPI_task_rank == 0)
     {
       if (mkdir(fname_.c_str(), 0777))
@@ -213,7 +214,7 @@ public:
       }
     }
 
-    const bool bhave_hydro = cf_.get_value_safe<bool>("setup", "baryons", false);
+    const bool bhave_hydro = cf_.get_value<bool>("setup", "DoBaryons");
     const uint32_t ngrid = cf_.get_value<int>("setup", "GridRes");
     bUseSPT_ = cf_.get_value_safe<bool>("output", "enzo_use_SPT", false);
 
