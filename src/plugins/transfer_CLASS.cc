@@ -128,7 +128,7 @@ private:
     add_class_parameter("k_per_decade_for_pk", 100);
     add_class_parameter("k_per_decade_for_bao", 100);
     add_class_parameter("compute damping scale", "yes");
-    add_class_parameter("tol_perturb_integration", 1.e-8);
+    add_class_parameter("tol_perturbations_integration", 1.e-8);
     add_class_parameter("tol_background_integration", 1e-9);
 
     // high precision options from cl_permille.pre:
@@ -147,8 +147,8 @@ private:
     add_class_parameter("perturbations_verbose", class_verbosity);
     add_class_parameter("transfer_verbose", class_verbosity);
     add_class_parameter("primordial_verbose", class_verbosity);
-    add_class_parameter("spectra_verbose", class_verbosity);
-    add_class_parameter("nonlinear_verbose", class_verbosity);
+    add_class_parameter("harmonic_verbose", class_verbosity);
+    add_class_parameter("fourier_verbose", class_verbosity);
     add_class_parameter("lensing_verbose", class_verbosity);
     add_class_parameter("output_verbose", class_verbosity);
 
