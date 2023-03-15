@@ -171,7 +171,7 @@ private:
 
   //! run ClassEngine with parameters set up
   void run_ClassEngine(double z, int gauge, std::vector<double> &k, std::vector<double> &dc, std::vector<double> &tc, std::vector<double> &db, std::vector<double> &tb,
-                       std::vector<double> &dn, std::vector<double> &tn, std::vector<double> &dt, std::vector<double> &tt, 
+                       std::vector<double> &dn, std::vector<double> &tn, std::vector<double> &dm, std::vector<double> &tm, std::vector<double> &dt, std::vector<double> &tt, 
                        std::vector<double> &phi_or_h, std::vector<double> &psi_or_eta)
   {
     k.clear(); 
@@ -184,7 +184,7 @@ private:
     // ...
     const int class_gauge = (gauge<0)? 0 : gauge;
     double fHa{0.0};
-    the_ClassEngine_->getTk(z, class_gauge, k, dc, db, dn, dt, tc, tb, tn, tt, phi_or_h, psi_or_eta, fHa);
+    the_ClassEngine_->getTk(z, class_gauge, k, dc, db, dn, dm, dt, tc, tb, tn, tm, tt, phi_or_h, psi_or_eta, fHa);
 
     // convert velocities to conformal Newtonian gauge if gauge < 0
     if( gauge<0 ){
@@ -193,6 +193,7 @@ private:
         tc[index_k] = (-alphak2) / fHa;
         tb[index_k] = (-alphak2 + tb[index_k]) / fHa;
         tn[index_k] = (-alphak2 + tn[index_k]) / fHa;
+        tm[index_k] = (-alphak2 + tm[index_k]) / fHa;
         tt[index_k] = (-alphak2 + tt[index_k]) / fHa;
       }
     }else{
@@ -209,10 +210,12 @@ private:
       dc[i] = -dc[i] * ik2;
       db[i] = -db[i] * ik2;
       dn[i] = -dn[i] * ik2;
+      dm[i] = -dm[i] * ik2;
       dt[i] = -dt[i] * ik2;
       tc[i] = -tc[i] * ik2;
       tb[i] = -tb[i] * ik2;
       tn[i] = -tn[i] * ik2;
+      tm[i] = -tm[i] * ik2;
       tt[i] = -tt[i] * ik2;
       phi_or_h[i]   = -phi_or_h[i] * ik2;
       psi_or_eta[i] = -psi_or_eta[i] * ik2;
@@ -261,8 +264,8 @@ public:
 
     // compute the transfer function at z=0 using CLASS engine
     constexpr int gauge{-1}; // always use synchronous gauge
-    std::vector<double> k, dc, tc, db, tb, dn, tn, dt, tt, phi_or_h, psi_or_eta;
-    this->run_ClassEngine(0.0, gauge, k, dc, tc, db, tb, dn, tn, dt, tt, phi_or_h, psi_or_eta );
+    std::vector<double> k, dc, tc, db, tb, dn, tn, dm, tm, dt, tt, phi_or_h, psi_or_eta;
+    this->run_ClassEngine(0.0, gauge, k, dc, tc, db, tb, dn, tn, dm, tm, dt, tt, phi_or_h, psi_or_eta );
 
     delta_c0_.set_data(k, dc);
     theta_c0_.set_data(k, tc);
@@ -274,7 +277,7 @@ public:
     theta_t0_.set_data(k, tt);
 
      // compute the transfer function at z=z_target using CLASS engine
-    this->run_ClassEngine(ztarget_, gauge, k, dc, tc, db, tb, dn, tn, dt, tt, phi_or_h, psi_or_eta );
+    this->run_ClassEngine(ztarget_, gauge, k, dc, tc, db, tb, dn, tn, dm, tm, dt, tt, phi_or_h, psi_or_eta );
 
     delta_c_.set_data(k, dc);
     theta_c_.set_data(k, tc);
