@@ -263,7 +263,7 @@ endif(ENABLE_PANPHASIA)
 if(ENABLE_PLT)
   target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_PLT")
 endif(ENABLE_PLT)
-
+target_include_directories(${PRGNAME} PRIVATE ${GSL_INCLUDE_DIR})
 target_link_libraries(${PRGNAME} PRIVATE GSL::gsl)
 
 

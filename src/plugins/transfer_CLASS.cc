@@ -38,8 +38,8 @@ private:
   
   using TransferFunction_plugin::cosmo_params_;
 
-  interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_m_, theta_c_, theta_b_, theta_n_, theta_m_;
-  interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_m0_, theta_c0_, theta_b0_, theta_n0_, theta_m0_;
+  interpolated_function_1d<true, true, false> delta_c_, delta_b_, delta_n_, delta_t_, theta_c_, theta_b_, theta_n_, theta_t_;
+  interpolated_function_1d<true, true, false> delta_c0_, delta_b0_, delta_n0_, delta_t0_, theta_c0_, theta_b0_, theta_n0_, theta_t0_;
 
   double zstart_, ztarget_, astart_, atarget_, kmax_, kmin_, h_, tnorm_;
 
@@ -170,14 +170,34 @@ private:
   }
 
   //! run ClassEngine with parameters set up
-  void run_ClassEngine(double z, std::vector<double> &k, std::vector<double> &dc, std::vector<double> &tc, std::vector<double> &db, std::vector<double> &tb,
-                       std::vector<double> &dn, std::vector<double> &tn, std::vector<double> &dm, std::vector<double> &tm)
+  void run_ClassEngine(double z, int gauge, std::vector<double> &k, std::vector<double> &dc, std::vector<double> &tc, std::vector<double> &db, std::vector<double> &tb,
+                       std::vector<double> &dn, std::vector<double> &tn, std::vector<double> &dt, std::vector<double> &tt, 
+                       std::vector<double> &phi_or_h, std::vector<double> &psi_or_eta)
   {
     k.clear(); 
-    dc.clear(); db.clear(); dn.clear(); dm.clear();
-    tc.clear(); tb.clear(); tn.clear(); tm.clear();
-    
-    the_ClassEngine_->getTk(z, k, dc, db, dn, dm, tc, tb, tn, tm);
+    dc.clear(); db.clear(); dn.clear(); dt.clear();
+    tc.clear(); tb.clear(); tn.clear(); tt.clear();
+
+    // if gauge < 0  : run class in synchronous gauge, and convert *only* velocities to conformal Newtonian gauge below, phi_or_h is h_prim, psi_or_eta is eta_prime
+    // if gauge == 0 : run class in synchronous gauge, do not convert velocities, phi_or_h is h_prim, psi_or_eta is eta_prime
+    // if gauge == 1 : run class in Newtonian gauge, do not convert velocities, phi_or_h is phi, psi_or_eta is psi
+    // ...
+    const int class_gauge = (gauge<0)? 0 : gauge;
+    double fHa{0.0};
+    the_ClassEngine_->getTk(z, class_gauge, k, dc, db, dn, dt, tc, tb, tn, tt, phi_or_h, psi_or_eta, fHa);
+
+    // convert velocities to conformal Newtonian gauge if gauge < 0
+    if( gauge<0 ){
+      for( size_t index_k=0; index_k< k.size(); ++index_k ){
+        double alphak2 = (phi_or_h[index_k] + 6 * psi_or_eta[index_k]) / 2;
+        tc[index_k] = (-alphak2) / fHa;
+        tb[index_k] = (-alphak2 + tb[index_k]) / fHa;
+        tn[index_k] = (-alphak2 + tn[index_k]) / fHa;
+        tt[index_k] = (-alphak2 + tt[index_k]) / fHa;
+      }
+    }else{
+      _unused(fHa);
+    }
 
     const double h  = cosmo_params_.get("h");
 
@@ -189,11 +209,13 @@ private:
       dc[i] = -dc[i] * ik2;
       db[i] = -db[i] * ik2;
       dn[i] = -dn[i] * ik2;
-      dm[i] = -dm[i] * ik2;
+      dt[i] = -dt[i] * ik2;
       tc[i] = -tc[i] * ik2;
       tb[i] = -tb[i] * ik2;
       tn[i] = -tn[i] * ik2;
-      tm[i] = -tm[i] * ik2;
+      tt[i] = -tt[i] * ik2;
+      phi_or_h[i]   = -phi_or_h[i] * ik2;
+      psi_or_eta[i] = -psi_or_eta[i] * ik2;
     }
   }
 
@@ -238,8 +260,9 @@ public:
     tnorm_ = std::sqrt(2.0 * M_PI * M_PI * A_s_ * std::pow(1.0 / k_p, cosmo_params["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
 
     // compute the transfer function at z=0 using CLASS engine
-    std::vector<double> k, dc, tc, db, tb, dn, tn, dm, tm;
-    this->run_ClassEngine(0.0, k, dc, tc, db, tb, dn, tn, dm, tm);
+    constexpr int gauge{-1}; // always use synchronous gauge
+    std::vector<double> k, dc, tc, db, tb, dn, tn, dt, tt, phi_or_h, psi_or_eta;
+    this->run_ClassEngine(0.0, gauge, k, dc, tc, db, tb, dn, tn, dt, tt, phi_or_h, psi_or_eta );
 
     delta_c0_.set_data(k, dc);
     theta_c0_.set_data(k, tc);
@@ -247,19 +270,20 @@ public:
     theta_b0_.set_data(k, tb);
     delta_n0_.set_data(k, dn);
     theta_n0_.set_data(k, tn);
-    delta_m0_.set_data(k, dm);
-    theta_m0_.set_data(k, tm);
+    delta_t0_.set_data(k, dt);
+    theta_t0_.set_data(k, tt);
 
      // compute the transfer function at z=z_target using CLASS engine
-    this->run_ClassEngine(ztarget_, k, dc, tc, db, tb, dn, tn, dm, tm);
+    this->run_ClassEngine(ztarget_, gauge, k, dc, tc, db, tb, dn, tn, dt, tt, phi_or_h, psi_or_eta );
+
     delta_c_.set_data(k, dc);
     theta_c_.set_data(k, tc);
     delta_b_.set_data(k, db);
     theta_b_.set_data(k, tb);
     delta_n_.set_data(k, dn);
     theta_n_.set_data(k, tn);
-    delta_m_.set_data(k, dm);
-    theta_m_.set_data(k, tm);
+    delta_t_.set_data(k, dt);
+    theta_t_.set_data(k, tt);
 
     kmin_ = k[0];
     kmax_ = k.back();
@@ -289,13 +313,13 @@ public:
     {
       // values at ztarget:
     case delta_matter:
-      val = delta_m_(k); break;
+      val = delta_t_(k); break;
     case delta_cdm:
       val = delta_c_(k); break;
     case delta_baryon:
       val = delta_b_(k); break;
     case theta_matter:
-      val = theta_m_(k); break;
+      val = theta_t_(k); break;
     case theta_cdm:
       val = theta_c_(k); break;
     case theta_baryon:
@@ -307,13 +331,13 @@ public:
 
       // values at zstart:
     case delta_matter0:
-      val = delta_m0_(k); break;
+      val = delta_t0_(k); break;
     case delta_cdm0:
       val = delta_c0_(k); break;
     case delta_baryon0:
       val = delta_b0_(k); break;
     case theta_matter0:
-      val = theta_m0_(k); break;
+      val = theta_t0_(k); break;
     case theta_cdm0:
       val = theta_c0_(k); break;
     case theta_baryon0:
