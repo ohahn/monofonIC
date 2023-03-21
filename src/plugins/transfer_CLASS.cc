@@ -172,24 +172,25 @@ private:
   //! run ClassEngine with parameters set up
   void run_ClassEngine(double z, int gauge, std::vector<double> &k, std::vector<double> &dc, std::vector<double> &tc, std::vector<double> &db, std::vector<double> &tb,
                        std::vector<double> &dn, std::vector<double> &tn, std::vector<double> &dm, std::vector<double> &tm, std::vector<double> &dt, std::vector<double> &tt, 
-                       std::vector<double> &phi_or_h, std::vector<double> &psi_or_eta)
+                       std::vector<double> &phi_or_h_prime, std::vector<double> &psi_or_eta_prime)
   {
     k.clear(); 
     dc.clear(); db.clear(); dn.clear(); dt.clear();
     tc.clear(); tb.clear(); tn.clear(); tt.clear();
 
-    // if gauge < 0  : run class in synchronous gauge, and convert *only* velocities to conformal Newtonian gauge below, phi_or_h is h_prim, psi_or_eta is eta_prime
-    // if gauge == 0 : run class in synchronous gauge, do not convert velocities, phi_or_h is h_prim, psi_or_eta is eta_prime
-    // if gauge == 1 : run class in Newtonian gauge, do not convert velocities, phi_or_h is phi, psi_or_eta is psi
+    // if gauge < 0  : run class in synchronous gauge, and convert *only* velocities to conformal Newtonian gauge below, phi_or_h_prime is h_prime, psi_or_eta_prime is eta_prime
+    // if gauge == 0 : run class in synchronous gauge, do not convert velocities, phi_or_h_prime is h_prime, psi_or_eta_prime is eta_prime
+    // if gauge == 1 : run class in Newtonian gauge, do not convert velocities, phi_or_h is phi, psi_or_eta_prime is psi
     // ...
     const int class_gauge = (gauge<0)? 0 : gauge;
     double fHa{0.0};
-    the_ClassEngine_->getTk(z, class_gauge, k, dc, db, dn, dm, dt, tc, tb, tn, tm, tt, phi_or_h, psi_or_eta, fHa);
-
+    the_ClassEngine_->getTk(z, class_gauge, k, dc, db, dn, dm, dt, tc, tb, tn, tm, tt, phi_or_h_prime, psi_or_eta_prime, fHa);
+    
     // convert velocities to conformal Newtonian gauge if gauge < 0
     if( gauge<0 ){
       for( size_t index_k=0; index_k< k.size(); ++index_k ){
-        double alphak2 = (phi_or_h[index_k] + 6 * psi_or_eta[index_k]) / 2;
+        // gauge transformation to conformal Newtonian velocity, Ma & Bertschinger eq.(27b)
+        double alphak2 = (phi_or_h_prime[index_k] + 6 * psi_or_eta_prime[index_k]) / 2;
         tc[index_k] = (-alphak2) / fHa;
         tb[index_k] = (-alphak2 + tb[index_k]) / fHa;
         tn[index_k] = (-alphak2 + tn[index_k]) / fHa;
@@ -217,8 +218,8 @@ private:
       tn[i] = -tn[i] * ik2;
       tm[i] = -tm[i] * ik2;
       tt[i] = -tt[i] * ik2;
-      phi_or_h[i]   = -phi_or_h[i] * ik2;
-      psi_or_eta[i] = -psi_or_eta[i] * ik2;
+      phi_or_h_prime[i]   = -phi_or_h_prime[i] * ik2;
+      psi_or_eta_prime[i] = -psi_or_eta_prime[i] * ik2;
     }
   }
 
