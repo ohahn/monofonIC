@@ -273,8 +273,8 @@ public:
     theta_b0_.set_data(k, tb);
     delta_n0_.set_data(k, dn);
     theta_n0_.set_data(k, tn);
-    delta_t0_.set_data(k, dt);
-    theta_t0_.set_data(k, tt);
+    delta_t0_.set_data(k, dm);
+    theta_t0_.set_data(k, tm);
 
      // compute the transfer function at z=z_target using CLASS engine
     this->run_ClassEngine(ztarget_, gauge, k, dc, tc, db, tb, dn, tn, dm, tm, dt, tt, phi_or_h, psi_or_eta );
@@ -285,8 +285,8 @@ public:
     theta_b_.set_data(k, tb);
     delta_n_.set_data(k, dn);
     theta_n_.set_data(k, tn);
-    delta_t_.set_data(k, dt);
-    theta_t_.set_data(k, tt);
+    delta_t_.set_data(k, dm);
+    theta_t_.set_data(k, tm);
 
     kmin_ = k[0];
     kmax_ = k.back();
