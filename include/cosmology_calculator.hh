@@ -229,19 +229,19 @@ public:
             for (double k = kmin; k < transfer_function_->get_kmax(); k *= 1.01)
             {
                 ofs << std::setw(20) << std::setprecision(10) << k
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter)*Dplus_start_, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm)*Dplus_start_, 2.0)
-                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon)*Dplus_start_, 2.0)
                     // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter)*Dplus_start_, 2.0)
                     // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm)*Dplus_start_, 2.0)
                     // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon)*Dplus_start_, 2.0)
-                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_cdm)*Dplus_start_, 2.0)
-                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_baryon)*Dplus_start_, 2.0)
-                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter0)* Dplus_start_ / Dplus_target_, 2.0)
-                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm0)* Dplus_start_ / Dplus_target_, 2.0)
-                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon0)* Dplus_start_ / Dplus_target_, 2.0)
-                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_cdm0)* Dplus_start_ / Dplus_target_, 2.0)
-                    // << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_baryon0)* Dplus_start_ / Dplus_target_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_cdm)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_baryon)*Dplus_start_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_matter0)* Dplus_start_ / Dplus_target_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_cdm0)* Dplus_start_ / Dplus_target_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, delta_baryon0)* Dplus_start_ / Dplus_target_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_cdm0)* Dplus_start_ / Dplus_target_, 2.0)
+                    << std::setw(20) << std::setprecision(10) << std::pow(this->get_amplitude(k, theta_baryon0)* Dplus_start_ / Dplus_target_, 2.0)
                     << std::endl;
             }
         }
