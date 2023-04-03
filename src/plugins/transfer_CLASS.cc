@@ -108,6 +108,13 @@ private:
         sstr_T << T_ncdm_[i];
         omega_ncdm_total_ += omega_ncdm_[i];
 
+        if( i<omega_ncdm_.size()-1 )
+        {
+          sstr_m << ", ";
+          sstr_omega << ", ";
+          sstr_T << ", ";
+        }
+
         music::ilog.Print("Found extra nCDM species: m=%g eV, T=%g (T_gamma), Omega=%g", m_ncdm_[i], T_ncdm_[i], omega_ncdm_[i]);
       }
       music::ilog.Print("Energy density of all nCDM species: Omega = %g", omega_ncdm_total_);
@@ -300,7 +307,6 @@ private:
     }
 
     const double h = cosmo_params_.get("h");
-    const double valmin = 1e-19;
 
     for (size_t i = 0; i < k.size(); ++i)
     {
