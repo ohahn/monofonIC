@@ -192,8 +192,13 @@ public:
 
         music::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
+        music::ilog << std::setw(32) << std::left << "TF minimum wave number"
+                    << " : " << transfer_function_->get_kmin() << " h/Mpc" << std::endl;
         music::ilog << std::setw(32) << std::left << "TF maximum wave number"
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
+        if( std::sqrt(3.0)* 2.0*M_PI / cf.get_value<double>("setup","BoxLength") * cf.get_value<double>("setup","GridRes")/2  >= transfer_function_->get_kmax() ){
+            music::elog << "Simulation nyquist mode kny = " << std::sqrt(3.0)* 2.0*M_PI / cf.get_value<double>("setup","BoxLength") * cf.get_value<double>("setup","GridRes")/2 << " h/Mpc is beyond valid range of transfer function!" << std::endl;
+        }
 
         m_n_s_ = cosmo_param_["n_s"];
         m_sqrtpnorm_ = cosmo_param_["sqrtpnorm"];

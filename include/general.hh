@@ -185,6 +185,8 @@ inline void multitask_sync_barrier(void)
 #endif
 }
 
+extern size_t global_mem_high_mark, local_mem_high_mark;
+
 namespace CONFIG
 {
 extern int MPI_thread_support;
