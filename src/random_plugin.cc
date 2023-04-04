@@ -77,5 +77,5 @@ std::unique_ptr<RNG_plugin> select_RNG_plugin(config_file &cf)
         music::ilog << std::setw(32) << std::left << "Random number generator plugin" << " : " << rngname << std::endl;
     }
 
-    return std::move(the_RNG_plugin_creator->Create(cf));
+    return the_RNG_plugin_creator->Create(cf);
 }

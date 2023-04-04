@@ -107,14 +107,19 @@ namespace cosmology
                 pmap_["sigma_8"] = cf.get_value_safe<double>("cosmology", "sigma_8", -1.0);
                 
                 // baryon and non-relativistic matter content
-                pmap_["Omega_b"] = cf.get_value_safe<double>("cosmology", "Omega_b", defaultp["Omega_b"]);
-                pmap_["Omega_m"] = cf.get_value_safe<double>("cosmology", "Omega_m", defaultp["Omega_m"]);
+                pmap_["Omega_b"]    = cf.get_value_safe<double>("cosmology", "Omega_b", defaultp["Omega_b"]);
+                pmap_["Omega_m"]    = cf.get_value_safe<double>("cosmology", "Omega_m", defaultp["Omega_m"]);
+                pmap_["Omega_ncdm"] = cf.get_value_safe<double>("cosmology", "Omega_ncdm", defaultp["Omega_ncdm"]); // TOMA
+                // pmap_["m_ncdm"]     = cf.get_value_safe<double>("cosmology", "m_ncdm", defaultp["m_ncdm"]); //TOMA
+                // pmap_["N_ncdm"]     = this->get("Omega_ncdm")>1e-9? 1 : 0;
+                // pmap_["T_ncdm"]     = cf.get_value_safe<double>("cosmology", "T_ncdm", defaultp["T_ncdm"]); //TOMA
+                // const int N_ncdm = this->get("N_ncdm");
 
                 // massive neutrino species
                 pmap_["m_nu1"] = cf.get_value_safe<double>("cosmology", "m_nu1", defaultp["m_nu1"]);
                 pmap_["m_nu2"] = cf.get_value_safe<double>("cosmology", "m_nu2", defaultp["m_nu2"]);
                 pmap_["m_nu3"] = cf.get_value_safe<double>("cosmology", "m_nu3", defaultp["m_nu3"]);
-                int N_nu_massive = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);;
+                const int N_nu_massive = int(this->get("m_nu1") > 1e-9) + int(this->get("m_nu2") > 1e-9) + int(this->get("m_nu3") > 1e-9);
                 
                 // number ultrarelativistic neutrinos
                 pmap_["N_ur"] = cf.get_value_safe<double>("cosmology", "N_ur", 3.046 - N_nu_massive);
@@ -168,8 +173,8 @@ namespace cosmology
             // total relativistic
             pmap_["Omega_r"] = this->get("Omega_gamma") + this->get("Omega_nu_massless");
 
-            // compute amount of cold dark matter as the rest
-            pmap_["Omega_c"] = this->get("Omega_m") - this->get("Omega_b") - this->get("Omega_nu_massive");
+            // compute amount of non-relativistic matter
+            pmap_["Omega_c"] = std::max(this->get("Omega_m") - this->get("Omega_b") - this->get("Omega_nu_massive") - this->get("Omega_ncdm"),0.0);
 
             if (cf.get_value_safe<bool>("cosmology", "ZeroRadiation", false))
             {
@@ -177,7 +182,7 @@ namespace cosmology
             }
 
             pmap_["f_b"] = this->get("Omega_b") / this->get("Omega_m");
-            pmap_["f_c"] = 1.0 - this->get("f_b"); // this means we add massive neutrinos to CDM here
+            pmap_["f_c"] = 1.0 - this->get("f_b"); // this means we add massive neutrinos and ncdm to CDM here
 
 #if 1
             // assume zero curvature, take difference from dark energy
@@ -202,6 +207,7 @@ namespace cosmology
               music::ilog << "sigma_8  = " << std::setw(16) << this->get("sigma_8");
             music::ilog << "n_s     = " << std::setw(16) << this->get("n_s") << std::endl;
             music::ilog << " Omega_c  = " << std::setw(16) << this->get("Omega_c")  << "Omega_b  = " << std::setw(16) << this->get("Omega_b") << "Omega_m = " << std::setw(16) << this->get("Omega_m") << std::endl;
+            // music::ilog << " Omega_ncdm  = " << std::setw(16) << this->get("Omega_ncdm")  << "m_ncdm = " << std::setw(16) << this->get("m_ncdm") << this->get("T_ncdm")  << "T_ncdm = " << std::setw(16) << this->get("T_ncdm") << std::endl;
             music::ilog << " Omega_r  = " << std::setw(16) << this->get("Omega_r")  << "Omega_nu = " << std::setw(16) << this->get("Omega_nu_massive") << "∑m_nu   = " << sum_m_nu << "eV" << std::endl;
             music::ilog << " Omega_DE = " << std::setw(16) << this->get("Omega_DE") << "w_0      = " << std::setw(16) << this->get("w_0")      << "w_a     = " << std::setw(16) << this->get("w_a") << std::endl;
             //music::ilog << " Omega_k  = " << 1.0 - this->get("Omega_m") - this->get("Omega_r") - this->get("Omega_DE") << std::endl;

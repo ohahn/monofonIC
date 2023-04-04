@@ -62,9 +62,9 @@ std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
  */
 int initialise( config_file& the_config )
 {
-    the_random_number_generator = std::move(select_RNG_plugin(the_config));
+    the_random_number_generator = select_RNG_plugin(the_config);
     the_cosmo_calc              = std::make_unique<cosmology::calculator>(the_config);
-    the_output_plugin           = std::move(select_output_plugin(the_config, the_cosmo_calc));
+    the_output_plugin           = select_output_plugin(the_config, the_cosmo_calc);
     
     return 0;
 }
@@ -116,7 +116,8 @@ int run( config_file& the_config )
         : ((lattice_str=="fcc")? particle::lattice_fcc 
         : ((lattice_str=="rsc")? particle::lattice_rsc 
         : ((lattice_str=="glass")? particle::lattice_glass
-        : particle::lattice_sc))));
+        : ((lattice_str=="masked")? particle::lattice_masked
+        : particle::lattice_sc)))));
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
@@ -149,12 +150,12 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! add beyond box tidal field modes following Schmidt et al. (2018) [https://arxiv.org/abs/1803.03274]
     bool bAddExternalTides = the_config.contains_key("cosmology", "LSS_aniso_lx") 
-                           & the_config.contains_key("cosmology", "LSS_aniso_ly") 
-                           & the_config.contains_key("cosmology", "LSS_aniso_lz");
+                           && the_config.contains_key("cosmology", "LSS_aniso_ly") 
+                           && the_config.contains_key("cosmology", "LSS_aniso_lz");
 
     if( bAddExternalTides && !(  the_config.contains_key("cosmology", "LSS_aniso_lx") 
-                               | the_config.contains_key("cosmology", "LSS_aniso_ly") 
-                               | the_config.contains_key("cosmology", "LSS_aniso_lz") ))
+                               || the_config.contains_key("cosmology", "LSS_aniso_ly") 
+                               || the_config.contains_key("cosmology", "LSS_aniso_lz") ))
     {
         music::elog << "Not all dimensions of LSS_aniso_l{x,y,z} specified! Will ignore external tidal field!" << std::endl;
         bAddExternalTides = false;
@@ -367,10 +368,10 @@ int run( config_file& the_config )
     // phi = - delta / k^2
 
     music::ilog << "-------------------------------------------------------------------------------" << std::endl;
-    music::ilog << "Generating LPT fields...." << std::endl;
+    music::ilog << "\n>>> Generating LPT fields.... <<<\n" << std::endl;
 
     double wtime = get_wtime();
-    music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(1) term" << std::flush;
+    music::ilog << std::setw(79) << std::setfill('.') << std::left << ">> Computing phi(1) term" << std::endl;
 
     phi.FourierTransformForward(false);
     phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
@@ -381,7 +382,7 @@ int run( config_file& the_config )
 
     phi.zero_DC_mode();
 
-    music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+    music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
 
     //======================================================================
     //... compute 2LPT displacement potential ....
@@ -392,7 +393,7 @@ int run( config_file& the_config )
         phi2.FourierTransformForward(false);
         
         wtime = get_wtime();
-        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(2) term" << std::flush;
+        music::ilog << std::setw(79) << std::setfill('.') << std::left << ">> Computing phi(2) term" << std::endl;
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi, {1, 1}, {2, 2}, op::assign_to(phi2));
         Conv.convolve_Hessians(phi, {1, 1}, phi, {2, 2}, op::add_to(phi2));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, op::subtract_from(phi2));
@@ -411,7 +412,7 @@ int run( config_file& the_config )
         }
 
         phi2.apply_InverseLaplacian();
-        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
 
         if (bAddExternalTides)
         {
@@ -432,19 +433,18 @@ int run( config_file& the_config )
         //... phi3 = phi3a - 10/7 phi3b
         //... 3a term ...
         wtime = get_wtime();
-        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3a) term" << std::flush;
+        music::ilog << std::setw(79) << std::setfill('.') << std::left << ">> Computing phi(3a) term" << std::endl;
         Conv.convolve_Hessians(phi, {0, 0}, phi, {1, 1}, phi, {2, 2}, op::assign_to(phi3a));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 2}, phi, {1, 2}, op::multiply_add_to(phi3a,2.0));
         Conv.convolve_Hessians(phi, {1, 2}, phi, {1, 2}, phi, {0, 0}, op::subtract_from(phi3a));
         Conv.convolve_Hessians(phi, {0, 2}, phi, {0, 2}, phi, {1, 1}, op::subtract_from(phi3a));
         Conv.convolve_Hessians(phi, {0, 1}, phi, {0, 1}, phi, {2, 2}, op::subtract_from(phi3a));
         phi3a.apply_InverseLaplacian();
-        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
 
         //... 3b term ...
         wtime = get_wtime();
-        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing phi(3b) term" << std::flush;
-
+        music::ilog << std::setw(71) << std::setfill('.') << std::left << ">> Computing phi(3b) term" << std::endl;
         phi3b.allocate();
         phi3b.FourierTransformForward(false);
         Conv.convolve_SumOfHessians(phi, {0, 0}, phi2, {1, 1}, {2, 2}, op::assign_to(phi3b));
@@ -456,11 +456,11 @@ int run( config_file& the_config )
         Conv.convolve_Hessians(phi, {1, 2}, phi2, {1, 2}, op::multiply_add_to(phi3b,+10.0/7.0));
         phi3b.apply_InverseLaplacian();
         //phi3b *= 0.5; // factor 1/2 from definition of phi(3b)!
-        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
 
         //... transversal term ...
         wtime = get_wtime();
-        music::ilog << std::setw(40) << std::setfill('.') << std::left << "Computing A(3) term" << std::flush;
+        music::ilog << std::setw(71) << std::setfill('.') << std::left << ">> Computing A(3) term" << std::endl;
         for (int idim = 0; idim < 3; ++idim)
         {
             // cyclic rotations of indices
@@ -473,7 +473,7 @@ int run( config_file& the_config )
             Conv.convolve_DifferenceOfHessians(phi2, {idimp, idimpp}, phi, {idimp, idimp}, {idimpp, idimpp}, op::subtract_from(*A3[idim]));
             A3[idim]->apply_InverseLaplacian();
         }
-        music::ilog << std::setw(20) << std::setfill(' ') << std::right << "took " << get_wtime() - wtime << "s" << std::endl;
+        music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
     }
 
     ///... scale all potentials with respective growth factors
@@ -557,8 +557,11 @@ int run( config_file& the_config )
                 size_t IDoffset = (this_species == cosmo_species::baryon)? ((the_output_plugin->has_64bit_ids())? 1 : 1): 0 ;
 
                 // allocate particle structure and generate particle IDs
+                bool secondary_lattice = (this_species == cosmo_species::baryon &&
+                                        the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
+
                 particle_lattice_generator_ptr = 
-                std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
+                std::make_unique<particle::lattice_generator<Grid_FFT<real_t>>>( lattice_type, secondary_lattice, the_output_plugin->has_64bit_reals(), the_output_plugin->has_64bit_ids(), 
                     bDoBaryons, IDoffset, tmp, the_config );
             }
 
@@ -566,7 +569,7 @@ int run( config_file& the_config )
             if( bDoBaryons && (the_output_plugin->write_species_as( this_species ) == output_type::particles
                 || the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian) ) 
             {
-                bool shifted_lattice = (this_species == cosmo_species::baryon &&
+                bool secondary_lattice = (this_species == cosmo_species::baryon &&
                                         the_output_plugin->write_species_as(this_species) == output_type::particles) ? true : false;
 
                 const real_t munit = the_output_plugin->mass_unit();
@@ -589,7 +592,7 @@ int run( config_file& the_config )
                 });
                 
                 if( the_output_plugin->write_species_as( this_species ) == output_type::particles ){
-                    particle_lattice_generator_ptr->set_masses( lattice_type, shifted_lattice, 1.0, the_output_plugin->has_64bit_reals(), rho, the_config );
+                    particle_lattice_generator_ptr->set_masses( lattice_type, secondary_lattice, 1.0, the_output_plugin->has_64bit_reals(), rho, the_config );
                 }else if( the_output_plugin->write_species_as( this_species ) == output_type::field_lagrangian ){
                     the_output_plugin->write_grid_data( rho, this_species, fluid_component::mass );
                 }

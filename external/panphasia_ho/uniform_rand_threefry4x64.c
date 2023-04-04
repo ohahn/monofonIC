@@ -100,8 +100,8 @@ void threefry4x64_test_(int verbose)
     if ((rand.v[0] != result.v[0]) || (rand.v[1] != result.v[1]) || (rand.v[2] != result.v[2]) || (rand.v[3] != result.v[3]))
     {
       printf("Serious error occured !!!!!!!!!!  Random generator is not working correctly \n");
-      printf("Random generated: %lu %lu %lu %lu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
-      printf("Random expected:  %lu %lu %lu %lu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
+      printf("Random generated: %llu %llu %llu %llu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
+      printf("Random expected:  %llu %llu %llu %llu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
       //abort();
     }
     else
@@ -121,8 +121,8 @@ void threefry4x64_test_(int verbose)
     if ((rand.v[0] != result.v[0]) || (rand.v[1] != result.v[1]) || (rand.v[2] != result.v[2]) || (rand.v[3] != result.v[3]))
     {
       printf("Serious error occured !!!!!!!!!!  Random generator is not working correctly \n");
-      printf("Random generated: %lu %lu %lu %lu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
-      printf("Random expected:  %lu %lu %lu %lu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
+      printf("Random generated: %llu %llu %llu %llu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
+      printf("Random expected:  %llu %llu %llu %llu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
       //abort();
     }
     else
@@ -143,8 +143,8 @@ void threefry4x64_test_(int verbose)
     if ((rand.v[0] != result.v[0]) || (rand.v[1] != result.v[1]) || (rand.v[2] != result.v[2]) || (rand.v[3] != result.v[3]))
     {
       printf("Serious error occured !!!!!!!!!!  Random generator is not working correctly \n");
-      printf("Random generated: %lu %lu %lu %lu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
-      printf("Random expected:  %lu %lu %lu %lu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
+      printf("Random generated: %llu %llu %llu %llu\n", rand.v[0], rand.v[1], rand.v[2], rand.v[3]);
+      printf("Random expected:  %llu %llu %llu %llu\n", result.v[0], result.v[1], result.v[2], result.v[3]);
       //abort();
     }
     else
@@ -176,7 +176,7 @@ void set_panphasia_key_(int verbose)
   verbose = 0; //ARJ
 
   if (verbose)
-    printf("Setting the threefry4x64 key to\n(%0lu %0lu %0lu %0lu)\n\n",
+    printf("Setting the threefry4x64 key to\n(%0llu %0llu %0llu %0llu)\n\n",
            panphasia_key.v[0], panphasia_key.v[1], panphasia_key.v[2], panphasia_key.v[3]);
   panphasia_key_initialised = 999;
 
@@ -237,10 +237,10 @@ void check_panphasia_key_(int verbose)
   if (panphasia_check_key.v[0] != panphasia_key.v[0] || panphasia_check_key.v[1] != panphasia_key.v[1] || panphasia_check_key.v[2] != panphasia_key.v[2] || panphasia_check_key.v[2] != panphasia_key.v[2])
   {
     printf("A serious error has happened - the threefry4x64 key has become corrupted!\n");
-    printf("Should be:  (%0lu %0lu %0lu %0lu)\n", panphasia_check_key.v[0],
+    printf("Should be:  (%0llu %0llu %0llu %0llu)\n", panphasia_check_key.v[0],
            panphasia_check_key.v[1], panphasia_check_key.v[2], panphasia_check_key.v[3]);
 
-    printf("But now is: (%0lu %0lu %0lu %0lu)\n", panphasia_key.v[0],
+    printf("But now is: (%0llu %0llu %0llu %0llu)\n", panphasia_key.v[0],
            panphasia_key.v[1], panphasia_key.v[2], panphasia_key.v[3]);
     printf("The fact that it has changed suggests the key has been overwritten in memory.\n");
     abort();

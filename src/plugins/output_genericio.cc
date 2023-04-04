@@ -74,8 +74,7 @@ public:
 
     void write_particle_data(const particle::container &pc, const cosmo_species &s, double Omega_species)
     {
-        double rhoc = 27.7519737; // in h^2 1e10 M_sol / Mpc^3
-        double boxmass = Omega_species * rhoc * std::pow(cf_.get_value<double>("setup", "BoxLength"), 3.);
+        double boxmass = Omega_species * munit_;
         double particle_mass = boxmass / pc.get_global_num_particles();
 
         size_t npart = pc.get_local_num_particles();

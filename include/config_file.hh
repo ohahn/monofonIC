@@ -1,17 +1,17 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn
-// 
+//
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // monofonIC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -25,7 +25,7 @@
 #include <stdexcept>
 #include <string>
 #include <typeinfo>
-
+#include <vector>
 #include <logger.hh>
 
 /*!
@@ -36,7 +36,8 @@
  * configuration is stored in hash-pairs and can be queried and
  * validated by the responsible class/routine
  */
-class config_file {
+class config_file
+{
 
   //! current line number
   unsigned iline_;
@@ -52,7 +53,8 @@ public:
    * @return trimmed string
    */
   std::string trim(std::string const &source,
-                   char const *delims = " \t\r\n") const {
+                   char const *delims = " \t\r\n") const
+  {
     std::string result(source);
     //... skip initial whitespace ...
     std::string::size_type index = result.find_last_not_of(delims);
@@ -76,27 +78,58 @@ public:
    * @param oval the interpreted/converted value
    */
   template <class in_value, class out_value>
-  void convert(const in_value &ival, out_value &oval) const {
+  void convert(const in_value &ival, out_value &oval) const
+  {
     std::stringstream ss;
     ss << ival; //.. insert value into stream
     ss >> oval; //.. retrieve value from stream
 
-    if (!ss.eof()) {
+    if (!ss.eof())
+    {
       //.. conversion error
       music::elog << "Error: conversion of \'" << ival << "\' failed."
-                << std::endl;
+                  << std::endl;
       throw except_invalid_conversion(std::string("invalid conversion to ") +
-                                 typeid(out_value).name() + '.');
+                                      typeid(out_value).name() + '.');
+    }
+  }
+
+  template <class in_value, typename T>
+  void convert(const in_value &ival, std::vector<T> &oval) const
+  {
+    std::stringstream ss;
+    ss << ival; //.. insert value into stream
+
+    while (ss.good())
+    {
+      std::stringstream ss2;
+      std::string substr;
+      std::getline(ss, substr, ',');
+      T oval_single;
+      ss2 << substr;
+      ss2 >> oval_single;
+      oval.push_back(oval_single);
+    }
+
+    if (!ss.eof())
+    {
+      //.. conversion error
+      music::elog << "Error: conversion of \'" << ival << "\' failed."
+                  << std::endl;
+      throw except_invalid_conversion(std::string("invalid conversion to ") +
+                                      typeid(T).name() + '.');
     }
   }
 
   //! constructor of class config_file
   /*! @param filename the path/name of the configuration file to be parsed
    */
-  explicit config_file(std::string const &filename) : iline_(0), items_() {
+  explicit config_file(std::string const &filename) : iline_(0), items_()
+  {
     std::ifstream file(filename.c_str());
 
-    if (!file.is_open()){
+    if (!file.is_open())
+    {
       music::elog << "Could not open config file \'" << filename << "\'." << std::endl;
       throw std::runtime_error(
           std::string("Error: Could not open config file \'") + filename +
@@ -110,7 +143,8 @@ public:
     int pos_equal;
     iline_ = 0;
     //.. walk through all lines ..
-    while (std::getline(file, line)) {
+    while (std::getline(file, line))
+    {
       ++iline_;
       //.. encounterd EOL ?
       if (!line.length())
@@ -122,7 +156,8 @@ public:
         line.erase(idx);
 
       //.. encountered section tag ?
-      if (line[0] == '[') {
+      if (line[0] == '[')
+      {
         in_section = trim(line.substr(1, line.find(']') - 1));
         continue;
       }
@@ -133,21 +168,24 @@ public:
       value = trim(line.substr(pos_equal + 1));
 
       if ((size_t)pos_equal == std::string::npos &&
-          (name.size() != 0 || value.size() != 0)) {
+          (name.size() != 0 || value.size() != 0))
+      {
         music::wlog << "Ignoring non-assignment in " << filename << ":"
-                  << iline_ << std::endl;
+                    << iline_ << std::endl;
         continue;
       }
 
-      if (name.length() == 0 && value.size() != 0) {
+      if (name.length() == 0 && value.size() != 0)
+      {
         music::wlog << "Ignoring assignment missing entry name in "
-                  << filename << ":" << iline_ << std::endl;
+                    << filename << ":" << iline_ << std::endl;
         continue;
       }
 
-      if (value.length() == 0 && name.size() != 0) {
+      if (value.length() == 0 && name.size() != 0)
+      {
         music::wlog << "Empty entry will be ignored in " << filename << ":"
-                  << iline_ << std::endl;
+                    << iline_ << std::endl;
         continue;
       }
 
@@ -155,9 +193,10 @@ public:
         continue;
 
       //.. add key/value pair to hash table ..
-      if (items_.find(in_section + '/' + name) != items_.end()) {
+      if (items_.find(in_section + '/' + name) != items_.end())
+      {
         music::wlog << "Redeclaration overwrites previous value in "
-                  << filename << ":" << iline_ << std::endl;
+                    << filename << ":" << iline_ << std::endl;
       }
 
       items_[in_section + '/' + name] = value;
@@ -168,7 +207,8 @@ public:
   /*! @param key the key value, usually "section/key"
    *  @param value the value of the key, also a string
    */
-  void insert_value(std::string const &key, std::string const &value) {
+  void insert_value(std::string const &key, std::string const &value)
+  {
     items_[key] = value;
   }
 
@@ -178,7 +218,8 @@ public:
    *  @param value the value of the key, also a string
    */
   void insert_value(std::string const &section, std::string const &key,
-                   std::string const &value) {
+                    std::string const &value)
+  {
     items_[section + '/' + key] = value;
   }
 
@@ -187,7 +228,8 @@ public:
    *  @param key the key name to be checked
    *  @return true if the key is present, false otherwise
    */
-  bool contains_key(std::string const &section, std::string const &key) {
+  bool contains_key(std::string const &section, std::string const &key)
+  {
     std::map<std::string, std::string>::const_iterator i =
         items_.find(section + '/' + key);
     if (i == items_.end())
@@ -199,7 +241,8 @@ public:
   /*! @param key the key name to be checked
    *  @return true if the key is present, false otherwise
    */
-  bool contains_key(std::string const &key) {
+  bool contains_key(std::string const &key)
+  {
     std::map<std::string, std::string>::const_iterator i = items_.find(key);
     if (i == items_.end())
       return false;
@@ -213,7 +256,9 @@ public:
    *  @return the value of the key
    *  @sa except_item_not_found
    */
-  template <class T> T get_value(std::string const &key) const {
+  template <class T>
+  T get_value(std::string const &key) const
+  {
     return get_value<T>("", key);
   }
 
@@ -226,13 +271,15 @@ public:
    *  @sa except_item_not_found
    */
   template <class T>
-  T get_value_basic(std::string const &section, std::string const &key) const {
+  T get_value_basic(std::string const &section, std::string const &key) const
+  {
     T r;
     std::map<std::string, std::string>::const_iterator i =
         items_.find(section + '/' + key);
-    if (i == items_.end()){
+    if (i == items_.end())
+    {
       throw except_item_not_found('\'' + section + '/' + key +
-                            std::string("\' not found."));
+                                  std::string("\' not found."));
     }
 
     convert(i->second, r);
@@ -247,7 +294,7 @@ public:
     {
       r = get_value_basic<T>(section, key);
     }
-    catch (except_item_not_found& e)
+    catch (except_item_not_found &e)
     {
       music::elog << e.what() << std::endl;
       throw;
@@ -265,11 +312,15 @@ public:
    */
   template <class T>
   T get_value_safe(std::string const &section, std::string const &key,
-                 T default_value) const {
+                   T default_value) const
+  {
     T r;
-    try {
+    try
+    {
       r = get_value_basic<T>(section, key);
-    } catch (except_item_not_found&) {
+    }
+    catch (except_item_not_found &)
+    {
       r = default_value;
       music::dlog << "Item \'" << section << "/" << key << " not found in config. Default = \'" << default_value << "\'" << std::endl;
     }
@@ -284,14 +335,17 @@ public:
    *  @return the key value (if key found) otherwise default_value
    */
   template <class T>
-  T get_value_safe(std::string const &key, T default_value) const {
+  T get_value_safe(std::string const &key, T default_value) const
+  {
     return get_value_safe("", key, default_value);
   }
 
   //! dumps all key-value pairs to a std::ostream
-  void dump(std::ostream &out) {
+  void dump(std::ostream &out)
+  {
     std::map<std::string, std::string>::const_iterator i = items_.begin();
-    while (i != items_.end()) {
+    while (i != items_.end())
+    {
       if (i->second.length() > 0)
         out << std::setw(24) << std::left << i->first << "  =  " << i->second
             << std::endl;
@@ -299,13 +353,15 @@ public:
     }
   }
 
-  void dump_to_log(void) {
+  void dump_to_log(void)
+  {
     music::ilog << "List of all configuration options:" << std::endl;
     std::map<std::string, std::string>::const_iterator i = items_.begin();
-    while (i != items_.end()) {
+    while (i != items_.end())
+    {
       if (i->second.length() > 0)
         music::ilog << std::setw(28) << i->first << " = " << i->second
-                  << std::endl;
+                    << std::endl;
       ++i;
     }
   }
@@ -313,20 +369,23 @@ public:
   //--- EXCEPTIONS ---
 
   //! runtime error that is thrown if key is not found in getValue
-  class except_item_not_found : public std::runtime_error {
+  class except_item_not_found : public std::runtime_error
+  {
   public:
     except_item_not_found(std::string itemname)
         : std::runtime_error(itemname.c_str()) {}
   };
 
   //! runtime error that is thrown if type conversion fails
-  class except_invalid_conversion : public std::runtime_error {
+  class except_invalid_conversion : public std::runtime_error
+  {
   public:
     except_invalid_conversion(std::string errmsg) : std::runtime_error(errmsg) {}
   };
 
   //! runtime error that is thrown if identifier is not found in keys
-  class ErrIllegalIdentifier : public std::runtime_error {
+  class ErrIllegalIdentifier : public std::runtime_error
+  {
   public:
     ErrIllegalIdentifier(std::string errmsg) : std::runtime_error(errmsg) {}
   };
@@ -342,7 +401,8 @@ public:
 //...           converts the string to type bool, returns type bool ...
 template <>
 inline bool config_file::get_value<bool>(std::string const &strSection,
-                                       std::string const &strEntry) const {
+                                         std::string const &strEntry) const
+{
   std::string r1 = get_value<std::string>(strSection, strEntry);
   if (r1 == "true" || r1 == "yes" || r1 == "on" || r1 == "1")
     return true;
@@ -357,17 +417,21 @@ inline bool config_file::get_value<bool>(std::string const &strSection,
 
 template <>
 inline bool config_file::get_value_safe<bool>(std::string const &strSection,
-                                           std::string const &strEntry,
-                                           bool defaultValue) const {
+                                              std::string const &strEntry,
+                                              bool defaultValue) const
+{
   std::string r1;
-  try {
+  try
+  {
     r1 = get_value_basic<std::string>(strSection, strEntry);
-    std::transform(r1.begin(), r1.end(),r1.begin(), ::toupper);
+    std::transform(r1.begin(), r1.end(), r1.begin(), ::toupper);
     if (r1 == "YAY" || r1 == "TRUE" || r1 == "YES" || r1 == "ON" || r1 == "1")
       return true;
     if (r1 == "NAY" || r1 == "FALSE" || r1 == "NO" || r1 == "OFF" || r1 == "0")
       return false;
-  } catch (except_item_not_found&) {
+  }
+  catch (except_item_not_found &)
+  {
     return defaultValue;
   }
   return defaultValue;
@@ -376,6 +440,7 @@ inline bool config_file::get_value_safe<bool>(std::string const &strSection,
 template <>
 inline void
 config_file::convert<std::string, std::string>(const std::string &ival,
-                                              std::string &oval) const {
+                                               std::string &oval) const
+{
   oval = ival;
 }

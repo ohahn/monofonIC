@@ -19,6 +19,24 @@
 #include <grid_fft.hh>
 #include <thread>
 
+#include "memory_stat.hh"
+
+void memory_report(void) 
+{
+    //... report memory usage
+    size_t curr_mem_high_mark = 0;
+    local_mem_high_mark = memory::getCurrentRSS();
+#if defined(USE_MPI)
+    MPI_Allreduce(&local_mem_high_mark, &curr_mem_high_mark, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
+#else
+    curr_mem_high_mark = local_mem_high_mark;
+#endif
+    if( curr_mem_high_mark > 1.1*global_mem_high_mark ){
+        music::ilog << std::setw(57) << std::setfill(' ') << std::right << "mem high: " << std::setw(8) << curr_mem_high_mark/(1ull<<20) << " MBytes / task" << std::endl;
+        global_mem_high_mark = curr_mem_high_mark;
+    }
+}
+
 template <typename data_t, bool bdistributed>
 void Grid_FFT<data_t, bdistributed>::allocate(void)
 {
@@ -175,6 +193,7 @@ void Grid_FFT<data_t, bdistributed>::allocate(void)
 #endif //// of #ifdef #else USE_MPI ////////////////////////////////////////////////////////////////////////////////////
     }
     ballocated_ = true;
+    memory_report();
 }
 
 template <typename data_t, bool bdistributed>

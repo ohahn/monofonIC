@@ -74,7 +74,7 @@ std::unique_ptr<output_plugin> select_output_plugin( config_file& cf, std::uniqu
 		music::ilog << std::setw(32) << std::left << "Output plugin" << " : " << formatname << std::endl;
 	}
 	
-	return std::move(the_output_plugin_creator->create( cf, pcc ));
+	return the_output_plugin_creator->create( cf, pcc );
 }
 
 

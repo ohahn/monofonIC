@@ -421,7 +421,7 @@ private:
                     
                     if( !is_in(i,j,k,mat_invrecip)  ){
                         auto average_lv = [&]( const auto& t1, const auto& t2, const auto& t3, vec3_t<real_t>& v, vec3_t<real_t>& l ) {
-                            v = real_t(0.0); l = real_t(0.0);
+                            v = vec3_t<real_t>(0.0); l = vec3_t<real_t>(0.0);
                             int count(0);
                             
                             auto add_lv = [&]( auto it ) -> void {
