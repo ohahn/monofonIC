@@ -426,56 +426,69 @@ public:
     }
 
 
-    // toma
-    //! get E
+       // toma
+    //! Computes the second-order growth factor E, 
+    //! see definition in 2205.11347 (eq. 28) (or 1602.05933 eq. 2.21)
     real_t get_2growth_factor(real_t a) const noexcept
     {
         return E_of_a_(a) / Dnow_ / Dnow_;
     }
 
     // toma
-    //! compute the factors w
+    //! Computes the time derivative w.r.t. conformal time of the 
+    //! second-order growth factor E
+    //! see definition in 2205.11347 (eq. 28) (or 1602.05933 eq. 2.21)
     real_t get_dotE(real_t a) const noexcept
     {
         return dotE_of_a_(a) / Dnow_ ;
     }
 
+    //! Computes the third-order growth factor Fa, 
+    //! see definition in 2205.11347 
     real_t get_3growthA_factor(real_t a) const noexcept
     {
         return Fa_of_a_(a)/ Dnow_ / Dnow_ / Dnow_ ;
     }
 
 
+    //! Computes the third-order growth factor Fb, 
+    //! see definition in 2205.11347 
     real_t get_3growthB_factor(real_t a) const noexcept
     {
         return Fb_of_a_(a)/ Dnow_ / Dnow_ / Dnow_ ;
     }
 
+    //! Computes the third-order growth factor Fc, 
+    //! see definition in 2205.11347 
     real_t get_3growthC_factor(real_t a) const noexcept
     {
         return Fc_of_a_(a)/ Dnow_ / Dnow_ / Dnow_ ;
     }
 
 
+    //! Computes the conformal time derivative of the 
+    //! third-order growth factor Fa, 
+    //! see definition in 2205.11347 
     real_t get_dotFa(real_t a) const noexcept
     {
         return dotFa_of_a_(a)/ Dnow_ / Dnow_ ;
     }
 
+    //! computes the conformal time derivative of the 
+    //! third-order growth factor Fb, 
+    //! see definition in 2205.11347 
     real_t get_dotFb(real_t a) const noexcept
     {
         return dotFb_of_a_(a)/ Dnow_ / Dnow_ ;
     }
 
+    //! computes the conformal time derivative of the 
+    //! third-order growth factor Fc, 
+    //! see definition in 2205.11347 
     real_t get_dotFc(real_t a) const noexcept
     {
         return dotFc_of_a_(a)/ Dnow_ / Dnow_ ;
     }
-
-
-
-
-
 
     //! Integrand for the sigma_8 normalization of the power spectrum
     /*! Returns the value of the primordial power spectrum multiplied with 
