@@ -76,23 +76,27 @@ private:
 
     add_class_parameter("Omega_b", cosmo_params_.get("Omega_b"));
     add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
-    add_class_parameter("Omega_fld", 0.0);
-    add_class_parameter("Omega_scf", 0.0);
+    
+    //--- dark energy EOS ---------------------------------------------
+    // CLASS docu:
+    // 8a) Dark energy contributions. At least one out of three conditions must be satisfied:
+    // i)   'Omega_Lambda' unspecified.
+    // ii)  'Omega_fld' unspecified.
+    // iii) 'Omega_scf' set to a negative value. [Will be refered to as
+    //      unspecified in the following text.]
+    // The code will then use the first unspecified component to satisfy the
+    // closure equation (sum_i Omega_i) equals (1 + Omega_k)
+    // (default: 'Omega_fld' and 'Omega_scf' set to 0 and 'Omega_Lambda' inferred by code)
 
-    // add_class_parameter("fluid_equation_of_state","CLP");
-    // add_class_parameter("w0_fld", -1 );
-    // add_class_parameter("wa_fld", 0. );
-    // add_class_parameter("cs2_fld", 1);
+    add_class_parameter("fluid_equation_of_state","CLP");
+    add_class_parameter("Omega_Lambda", 0.0);
+    add_class_parameter("Omega_scf", 0.0);
+    add_class_parameter("w0_fld", cosmo_params_.get("w_0") );
+    add_class_parameter("wa_fld", cosmo_params_.get("w_a") );
+    add_class_parameter("cs2_fld", 1);
 
     //--- massive neutrinos -------------------------------------------
-#if 0
-    //default off
-    // add_class_parameter("Omega_ur",0.0);
-    add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
-    add_class_parameter("N_ncdm", 0);
-
-#else
-
+    // TBD: add explanations of massive neutrinos and nCDM species
     add_class_parameter("N_ur", cosmo_params_.get("N_ur"));
 
     // treating of massive trans-relativistic species
@@ -171,8 +175,6 @@ private:
     add_class_parameter("T_ncdm", sstr_T.str().c_str());
 
     add_class_parameter("N_ncdm", cosmo_params_.get("N_nu_massive") + N_ncdm_);
-
-#endif
 
     //--- cosmological parameters, primordial -------------------------
     add_class_parameter("P_k_ini type", "analytic_Pk");
