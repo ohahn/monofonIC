@@ -115,10 +115,13 @@ private:
           sstr_T << ", ";
         }
 
-        music::ilog.Print("Found extra nCDM species: m=%g eV, T=%g (T_gamma), Omega=%g", m_ncdm_[i], T_ncdm_[i], omega_ncdm_[i]);
+        music::ilog.Print(" * Found extra nCDM species: m=%g eV, T=%g (T_gamma), Omega=%g", m_ncdm_[i], T_ncdm_[i], omega_ncdm_[i]);
       }
-      music::ilog.Print("Energy density of all nCDM species: Omega = %g", omega_ncdm_total_);
       omega_c_ -= omega_ncdm_total_;
+
+      music::ilog << "Energy density of all DM species:" << std::endl;
+      music::ilog.Print(" Omega_ncdm = %8g,     Omega_c = %8g\n", omega_ncdm_total_, omega_c_);
+      music::ilog << std::endl;
     }
 
     N_nu_massive_ = 0;
@@ -229,13 +232,12 @@ private:
       zlist << std::max(ztarget_, zstart_) << ", " << std::min(ztarget_, zstart_) << ", 0.0";
     add_class_parameter("z_pk", zlist.str());
 
-    music::ilog << "Computing transfer function via ClassEngine..." << std::endl;
+    music::ilog << ">>> Computing transfer function via ClassEngine..." << std::endl;
     double wtime = get_wtime();
 
     the_ClassEngine_ = std::make_unique<ClassEngine>(pars_, false);
 
-    wtime = get_wtime() - wtime;
-    music::ilog << "CLASS took " << wtime << " s." << std::endl;
+    music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
   }
 
   //! run ClassEngine with parameters set up
