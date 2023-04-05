@@ -1,6 +1,8 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn
+// Additional Contributors:
+//    Thomas Montandon (general growth ODEs)
 // 
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -155,17 +157,19 @@ private:
                 dy[1] = Dprime;
                 // d^2 D / dtau^2
                 dy[2] = -a * H_of_a(a) * Dprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * D / a;
-
-                // toma
+                // d E/dtau
                 dy[3] = Eprime; 
+                // d^2 E / dtau^2
                 dy[4] = -a * H_of_a(a) * Eprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (E-D*D) / a; 
-
+                // d F_a/dtau
                 dy[5] = Faprime; 
+                // d^2 F_a / dtau^2
                 dy[6] = -a * H_of_a(a) * Faprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (Fa-2.0*D*D*D) / a;
-
+                // d F_b/dtau
                 dy[7] = Fbprime;
+                // d^2 F_b / dtau^2
                 dy[8] = -a * H_of_a(a) * Fbprime + 3.0 / 2.0 * Omega_m * std::pow(H0, 2) * (Fb + 2.0*D*D*D - 2.0*E*D) / a;
-
+                // d F_c/dtau
                 dy[9] = D*Eprime-E*Dprime;
 
                 return dy;
@@ -182,7 +186,7 @@ private:
             tab_a.push_back(yy[0]);
             tab_D.push_back(yy[1]);
             tab_f.push_back(yy[2]); // temporarily store D' in table
-            tab_E.push_back(yy[3]);// toma
+            tab_E.push_back(yy[3]);
             tab_dotE.push_back(yy[4]); 
 
             tab_Fa.push_back(yy[5]);  
