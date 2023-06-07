@@ -1,6 +1,8 @@
 // This file is part of monofonIC (MUSIC2)
 // A software package to generate ICs for cosmological simulations
 // Copyright (C) 2020 by Oliver Hahn
+// Additional Contributors:
+//    Thomas Montandon (growth functions)
 // 
 // monofonIC is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

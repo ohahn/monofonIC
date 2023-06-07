@@ -37,7 +37,7 @@ inline void rk4_step(double h, double &t, vector_t &y, function_t f)
 // see Press & Teukolsky (1992): "Adaptive Stepsize Runge-Kutta Integration"
 // in Computers in Physics 6, 188 (1992); doi: 10.1063/1.4823060
 template <typename vector_t, typename function_t>
-inline vector_t ckrk5_step(double h, double &t, vector_t &y, function_t f)
+inline void ckrk5_step(const double h, const function_t f, const double t0, const vector_t y0, vector_t& yout, vector_t& yerr )
 {
   static constexpr double
       a2 = 0.20,
@@ -51,16 +51,15 @@ inline vector_t ckrk5_step(double h, double &t, vector_t &y, function_t f)
       dc1 = c1 - 2825.0 / 27648.0, dc3 = c3 - 18575.0 / 48384.0,
       dc4 = c4 - 13525.0 / 55296.0, dc5 = -277.0 / 14336.0, dc6 = c6 - 0.250;
 
-  vector_t k1(h * f(t, y));
-  vector_t k2(h * f(t + a2 * h, y + b21 * k1));
-  vector_t k3(h * f(t + a3 * h, y + b31 * k1 + b32 * k2));
-  vector_t k4(h * f(t + a4 * h, y + b41 * k1 + b42 * k2 + b43 * k3));
-  vector_t k5(h * f(t + a5 * h, y + b51 * k1 + b52 * k2 + b53 * k3 + b54 * k4));
-  vector_t k6(h * f(t + a6 * h, y + b61 * k1 + b62 * k2 + b63 * k3 + b64 * k4 + b65 * k5));
+  vector_t k1(h * f(t0, y0));
+  vector_t k2(h * f(t0 + a2 * h, y0 + b21 * k1));
+  vector_t k3(h * f(t0 + a3 * h, y0 + b31 * k1 + b32 * k2));
+  vector_t k4(h * f(t0 + a4 * h, y0 + b41 * k1 + b42 * k2 + b43 * k3));
+  vector_t k5(h * f(t0 + a5 * h, y0 + b51 * k1 + b52 * k2 + b53 * k3 + b54 * k4));
+  vector_t k6(h * f(t0 + a6 * h, y0 + b61 * k1 + b62 * k2 + b63 * k3 + b64 * k4 + b65 * k5));
 
-  y += c1 * k1 + c3 * k3 + c4 * k4 + c6 * k6;
-
-  return dc1 * k1 + dc3 * k3 + dc4 * k4 + dc5 * k5 + dc6 * k6;
+  yout = y0 + c1 * k1 + c3 * k3 + c4 * k4 + c6 * k6;
+  yerr = dc1 * k1 + dc3 * k3 + dc4 * k4 + dc5 * k5 + dc6 * k6;
 }
 
 // Adaptive step-size quality-controlled routine for ckrk5_step, see
@@ -80,7 +79,7 @@ inline void rk_step_qs(double htry, double &t, vector_t &y, vector_t &yscale, fu
   double errmax;
 
 do_ckrk5trialstep:
-  yerr = ckrk5_step(h, t, ytemp, f);
+  ckrk5_step(h, f, t, y, ytemp, yerr);
   errmax = 0.0;
   for (size_t i = 0; i < yerr.size(); ++i)
   {
