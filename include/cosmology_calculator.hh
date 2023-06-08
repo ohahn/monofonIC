@@ -60,7 +60,7 @@ namespace cosmology
         double m_n_s_, m_sqrtpnorm_;
 
         //! wrapper for GSL adaptive integration routine, do not use if many integrations need to be done as it allocates and deallocates memory
-        //! set to 61-point Gauss-Kronrod and large workspace, used for sigma_8 normalisation
+        //! set to 61-point Gauss-Kronrod and large workspace, used only for sigma_8 normalisation
         real_t integrate(double (*func)(double x, void *params), double a, double b, void *params) const
         {
             constexpr size_t wspace_size{100000};
@@ -84,12 +84,18 @@ namespace cosmology
             return static_cast<real_t>(result);
         }
 
-        //! compute the linear theory growth factor D+ by solving the single fluid ODE, returns tables D(a), f(a)
-        /*!
-         * @param tab_a reference to STL vector for values of a at which table entries exist
-         * @param tab_D reference to STL vector for values D(a) with a from tab_a
-         * @param tab_f reference to STL vector for values f(a)=dlog D / dlog a with a from tab_a
-         */
+        /// @brief compute the perturbation theory growth factors up to third order D(a) E(a) F(a) by solving the single fluid ODE, returns tables
+        /// @param tab_a (out) table of scale factors
+        /// @param tab_D (out) table of linear growth factors D(a)
+        /// @param tab_f (out) table of linear growth rates f(a)
+        /// @param tab_E (out) table of second order growth factors E(a)
+        /// @param tab_dotE (out) table of second order growth rates E'(a)
+        /// @param tab_Fa (out) table of third order growth factors Fa(a)
+        /// @param tab_dotFa (out) table of third order growth rates Fa'(a)
+        /// @param tab_Fb (out) table of third order growth factors Fb(a)
+        /// @param tab_dotFb (out) table of third order growth rates Fb'(a)
+        /// @param tab_Fc (out) table of third order growth factors Fc(a)
+        /// @param tab_dotFc (out) table of third order growth rates Fc'(a)
         void compute_growth(std::vector<double> &tab_a, std::vector<double> &tab_D, std::vector<double> &tab_f,
                             std::vector<double> &tab_E, std::vector<double> &tab_dotE,
                             std::vector<double> &tab_Fa, std::vector<double> &tab_dotFa,

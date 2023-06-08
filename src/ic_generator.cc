@@ -110,6 +110,20 @@ int run( config_file& the_config )
     //! order of the LPT approximation 
     const int LPTorder = the_config.get_value_safe<double>("setup","LPTorder",100);
 
+    #if defined(USE_CONVOLVER_ORSZAG)
+        //! check if grid size is even for Orszag convolver
+        if( (ngrid%2 != 0) && (LPTorder>1) ){
+            music::elog << "ERROR: Orszag convolver for LPTorder>1 requires even grid size!" << std::endl;
+            throw std::runtime_error("Orszag convolver for LPTorder>1 requires even grid size!");
+            return 0;
+        }
+    #else
+        //! warn if Orszag convolver is not used
+        if( LPTorder>1 ){
+            music::wlog << "WARNING: LPTorder>1 requires USE_CONVOLVER_ORSZAG to be enabled to avoid aliased results!" << std::endl;
+        }
+    #endif
+
     //--------------------------------------------------------------------------------------------------------
     //! initialice particles on a bcc or fcc lattice instead of a standard sc lattice (doubles and quadruples the number of particles) 
     std::string lattice_str = the_config.get_value_safe<std::string>("setup","ParticleLoad","sc");
@@ -121,17 +135,23 @@ int run( config_file& the_config )
         : ((lattice_str=="masked")? particle::lattice_masked
         : particle::lattice_sc)))));
 
+    music::ilog << "Using " << lattice_str << " lattice for particle load." << std::endl;
+
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
     const bool bDoFixing    = the_config.get_value_safe<bool>("setup", "DoFixing", false);
+    music::ilog << "Fixing of complex mode amplitudes is " << (bDoFixing?"enabled":"disabled") << std::endl;
+
     const bool bDoInversion = the_config.get_value_safe<bool>("setup", "DoInversion", false);
-    
+    music::ilog << "Inversion of the phase field is " << (bDoInversion?"enabled":"disabled") << std::endl;
 
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
+    music::ilog << "Baryon ICs are " << (bDoBaryons?"enabled":"disabled") << std::endl;
     //! enable also back-scaled decaying relative velocity mode? only first order!
     const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
+    music::ilog << "Baryon linear relative velocity mode is " << (bDoLinearBCcorr?"enabled":"disabled") << std::endl;
     // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){

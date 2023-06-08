@@ -17,7 +17,8 @@
 
 #pragma once
 
-//! implements a simple class of 3-vectors of arbitrary scalar type
+/// @brief implements a simple class of 3-vectors of arbitrary scalar type
+/// @tparam T scalar type
 template< typename T >
 class vec3_t{
 private:
@@ -28,19 +29,22 @@ public:
     //! expose access to elements via references
     T &x,&y,&z;
 
-    //! empty constructor
+    /// @brief empty constructor
     vec3_t()
     : data_{{T(0),T(0),T(0)}},x(data_[0]),y(data_[1]),z(data_[2]){}
 
-    //! copy constructor
+    /// @brief copy constructor
+    /// @param v vector to copy from
     vec3_t( const vec3_t<T> &v)
     : data_(v.data_), x(data_[0]),y(data_[1]),z(data_[2]){}
 
-    //! copy constructor for non-const reference, needed to avoid variadic template being called for non-const reference
+    /// @brief copy constructor for non-const reference, needed to avoid variadic template being called for non-const reference
+    /// @param v vector to copy from
     vec3_t( vec3_t<T>& v)
     : data_(v.data_), x(data_[0]),y(data_[1]),z(data_[2]){}
 
-    //! move constructor
+    /// @brief move constructor
+    /// @param v vector to move from
     vec3_t( vec3_t<T> &&v)
     : data_(std::move(v.data_)), x(data_[0]), y(data_[1]), z(data_[2]){}
 

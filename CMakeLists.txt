@@ -183,19 +183,42 @@ list (APPEND SOURCES
 endif()
 endif()
 
+########################################################################################################################
+# DOXYGEN
+# This will generate Doxygen documentation when you run make doc_doxygen in your build directory.
+option(BUILD_DOCUMENTATION "Build doxygen documentation" OFF)
+if(BUILD_DOCUMENTATION)
+    find_package(Doxygen)
+    if(DOXYGEN_FOUND)
+        set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
+        set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+
+        configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
+
+        add_custom_target( doc_doxygen ALL
+            COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMENT "Generating API documentation with Doxygen"
+            VERBATIM )
+    endif(DOXYGEN_FOUND)
+endif(BUILD_DOCUMENTATION)
+
+########################################################################################################################
 # project configuration header
 configure_file(
   ${PROJECT_SOURCE_DIR}/include/cmake_config.hh.in
   ${PROJECT_SOURCE_DIR}/include/cmake_config.hh
 )
 
+########################################################################################################################
+# executable and linking
 add_executable(${PRGNAME} ${SOURCES} ${PLUGINS})
 # target_setup_class(${PRGNAME})
 
 set_target_properties(${PRGNAME} PROPERTIES CXX_STANDARD 14)
 
-
-# mpi flags
+########################################################################################################################
+# mpi flags and precision set up
 if(MPI_CXX_FOUND)
   if(CODE_PRECISION STREQUAL "FLOAT")
     if(FFTW3_SINGLE_MPI_FOUND)

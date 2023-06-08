@@ -18,12 +18,16 @@
 
 #include <array>
 #include <vector>
-
 #include <numeric>
 
 #include <general.hh>
 #include <math/vec3.hh>
 
+/// @brief implements a wrapper class for grids with ghost zones for MPI communication (slab decomposition)
+/// @tparam numghosts number of ghost zones on each side
+/// @tparam haveleft flag whether to have left ghost zone
+/// @tparam haveright flag whether to have right ghost zone
+/// @tparam grid_t grid type to wrap
 template <int numghosts, bool haveleft, bool haveright, typename grid_t>
 struct grid_with_ghosts
 {
@@ -43,6 +47,9 @@ struct grid_with_ghosts
   //... determine communication offsets
   std::vector<ptrdiff_t> offsets_, sizes_;
 
+  /// @brief get task index for a given index
+  /// @param index index
+  /// @return task index
   int get_task(ptrdiff_t index) const
   {
     int itask = 0;
@@ -51,6 +58,8 @@ struct grid_with_ghosts
     return itask;
   }
 
+  /// @brief constructor for grid with ghosts
+  /// @param g grid to wrap
   explicit grid_with_ghosts(const grid_t &g)
   : gridref(g), nx_(g.n_[0]), ny_(g.n_[1]), nz_(g.n_[2]), nzp_(g.n_[2]+2)
   {
@@ -74,6 +83,8 @@ struct grid_with_ghosts
     }
   }
 
+  /// @brief update ghost zones via MPI communication
+  /// @param g grid to wrap
   void update_ghosts_allow_multiple( const grid_t &g )
   {
   #if defined(USE_MPI)
@@ -181,11 +192,19 @@ struct grid_with_ghosts
     #endif
   }
 
+  /// @brief return the element at position (i,j,k) in the grid
+  /// @param i index in x direction
+  /// @param j index in y direction
+  /// @param k index in z direction
+  /// @return grid element at position (i,j,k)
   data_t relem(const ptrdiff_t& i, const ptrdiff_t& j, const ptrdiff_t&k ) const noexcept
   {
     return this->relem({i,j,k});
   }
 
+  /// @brief return the element at position (i,j,k) in the grid
+  /// @param pos position in the grid (array of size 3: {i,j,k})
+  /// @return grid element at position (i,j,k)
   data_t relem(const std::array<ptrdiff_t, 3> &pos) const noexcept
   {
     const ptrdiff_t ix = pos[0];

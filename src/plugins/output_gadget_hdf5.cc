@@ -38,12 +38,14 @@ class gadget_hdf5_output_plugin : public output_plugin
   struct header_t
   {
     unsigned npart[6];
+    size_t npart64[6];
     double mass[6];
     double time;
     double redshift;
     int flag_sfr;
     int flag_feedback;
     unsigned int npartTotal[6];
+    size_t npartTotal64[6];
     int flag_cooling;
     int num_files;
     double BoxSize;
@@ -62,6 +64,7 @@ protected:
   header_t header_;
   real_t lunit_, vunit_, munit_;
   bool blongids_;
+  bool bgadget2_compatibility_;
   std::string this_fname_;
 
 public:
@@ -84,11 +87,15 @@ public:
     blongids_ = cf_.get_value_safe<bool>("output", "UseLongids", false);
     num_simultaneous_writers_ = cf_.get_value_safe<int>("output", "NumSimWriters", num_files_);
 
+    bgadget2_compatibility_ = cf_.get_value_safe<bool>("output", "Gadget2Compatibility", false);
+
     for (int i = 0; i < 6; ++i)
     {
       header_.npart[i] = 0;
+      header_.npart64[i] = 0;
       header_.npartTotal[i] = 0;
       header_.npartTotalHighWord[i] = 0;
+      header_.npartTotal64[i] = 0;
       header_.mass[i] = 0.0;
     }
 
@@ -107,16 +114,63 @@ public:
     header_.flag_entropy_instead_u = 0;
     header_.flag_doubleprecision = (typeid(write_real_t) == typeid(double)) ? true : false;
 
-    this_fname_ = fname_;
+    // split fname into prefix and file suffix (at last dot)
+    std::string::size_type pos = fname_.find_last_of(".");
+    std::string fname_prefix = fname_.substr(0, pos);
+    std::string fname_suffix = fname_.substr(pos + 1);
+
+    // add rank to filename if we have more than one file
+    this_fname_ = fname_prefix;
 #ifdef USE_MPI
     int thisrank = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &thisrank);
     if (num_files_ > 1)
       this_fname_ += "." + std::to_string(thisrank);
 #endif
+    this_fname_ += "." + fname_suffix;
 
     unlink(this_fname_.c_str());
     HDFCreateFile(this_fname_);
+
+    // Write MUSIC configuration header
+    int order = cf_.get_value<int>("setup", "LPTorder");
+    std::string load = cf_.get_value<std::string>("setup", "ParticleLoad");
+    std::string tf = cf_.get_value<std::string>("cosmology", "transfer");
+    std::string cosmo_set = cf_.get_value<std::string>("cosmology", "ParameterSet");
+    std::string rng = cf_.get_value<std::string>("random", "generator");
+    int do_fixing = cf_.get_value<bool>("setup", "DoFixing");
+    int do_invert = cf_.get_value<bool>("setup", "DoInversion");
+    int do_baryons = cf_.get_value<bool>("setup", "DoBaryons");
+    int do_baryonsVrel = cf_.get_value<bool>("setup", "DoBaryonVrel");
+    int L = cf_.get_value<int>("setup", "GridRes");
+
+    HDFCreateGroup(fname_, "ICs_parameters");
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Code", std::string("MUSIC2 - monofonIC"));
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Git Revision", std::string(GIT_REV));
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Git Tag", std::string(GIT_TAG));
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Git Branch", std::string(GIT_BRANCH));
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Precision", std::string(CMAKE_PRECISION_STR));
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Convolutions", std::string(CMAKE_CONVOLVER_STR));
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "PLT", std::string(CMAKE_PLT_STR));
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "LPT Order", order);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Particle Load", load);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Transfer Function", tf);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Cosmology Parameter Set", cosmo_set);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Random Generator", rng);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Mode Fixing", do_fixing);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Mode inversion", do_invert);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Baryons", do_baryons);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Baryons Relative Velocity", do_baryonsVrel);
+    HDFWriteGroupAttribute(fname_, "ICs_parameters", "Grid Resolution", L);
+
+    if (tf == "CLASS") {
+      double ztarget = cf_.get_value<double>("cosmology", "ztarget");
+      HDFWriteGroupAttribute(fname_, "ICs_parameters", "Target Redshift", ztarget);
+    }
+    if (rng == "PANPHASIA") {
+      std::string desc = cf_.get_value<std::string>("random", "descriptor");
+      HDFWriteGroupAttribute(fname_, "ICs_parameters", "Descriptor", desc);
+    }
   }
 
   // use destructor to write header post factum
@@ -125,13 +179,19 @@ public:
     if (!std::uncaught_exception())
     {
       HDFCreateGroup(this_fname_, "Header");
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(header_.npart));
+      if( bgadget2_compatibility_ ){
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(header_.npart));
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<unsigned>(header_.npartTotal));
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_6array<unsigned>(header_.npartTotalHighWord));
+      }else{
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<size_t>(header_.npart64));
+        HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<size_t>(header_.npartTotal64));
+      }
       HDFWriteGroupAttribute(this_fname_, "Header", "MassTable", from_6array<double>(header_.mass));
       HDFWriteGroupAttribute(this_fname_, "Header", "Time", from_value<double>(header_.time));
       HDFWriteGroupAttribute(this_fname_, "Header", "Redshift", from_value<double>(header_.redshift));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Sfr", from_value<int>(header_.flag_sfr));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Feedback", from_value<int>(header_.flag_feedback));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total", from_6array<unsigned>(header_.npartTotal));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Cooling", from_value<int>(header_.flag_cooling));
       HDFWriteGroupAttribute(this_fname_, "Header", "NumFilesPerSnapshot", from_value<int>(header_.num_files));
       HDFWriteGroupAttribute(this_fname_, "Header", "BoxSize", from_value<double>(header_.BoxSize));
@@ -140,7 +200,6 @@ public:
       HDFWriteGroupAttribute(this_fname_, "Header", "HubbleParam", from_value<double>(header_.HubbleParam));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_StellarAge", from_value<int>(header_.flag_stellarage));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Metals", from_value<int>(header_.flag_metals));
-      HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_Total_HighWord", from_6array<unsigned>(header_.npartTotalHighWord));
       HDFWriteGroupAttribute(this_fname_, "Header", "Flag_Entropy_ICs", from_value<int>(header_.flag_entropy_instead_u));
 
       music::ilog << "Wrote Gadget-HDF5 file(s) to " << this_fname_ << std::endl;
@@ -197,9 +256,14 @@ public:
 
     assert(sid != -1);
 
+    // use 32 bit integers for Gadget-2 compatibility
     header_.npart[sid] = (pc.get_local_num_particles());
     header_.npartTotal[sid] = (uint32_t)(pc.get_global_num_particles());
     header_.npartTotalHighWord[sid] = (uint32_t)((pc.get_global_num_particles()) >> 32);
+
+    // use 64 bit integers for Gadget >2 compatibility
+    header_.npart64[sid] = pc.get_local_num_particles();
+    header_.npartTotal64[sid] = pc.get_global_num_particles();
 
     if( pc.bhas_individual_masses_ )
       header_.mass[sid] = 0.0;

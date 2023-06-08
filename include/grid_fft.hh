@@ -25,26 +25,27 @@
 #include <bounding_box.hh>
 #include <typeinfo>
 
-enum space_t
-{
-    kspace_id,
-    rspace_id
-};
-
+/// @brief enum to indicate whether a grid is currently in real or k-space
+enum space_t { kspace_id, rspace_id };
 
 #ifdef USE_MPI
-template <typename data_t_, bool bdistributed=true>
+#define GRID_FFT_DISTRIBUTED true
 #else
-template <typename data_t_, bool bdistributed=false>
+#define GRID_FFT_DISTRIBUTED false
 #endif
+
+/// @brief class for FFTable grids
+/// @tparam data_t_ data type
+/// @tparam bdistributed flag to indicate whether this grid is distributed in memory
+template <typename data_t_, bool bdistributed=GRID_FFT_DISTRIBUTED>
 class Grid_FFT
 {
 public:
-    using data_t = data_t_;
-    static constexpr bool is_distributed_trait{bdistributed};
+    using data_t = data_t_; ///< data type
+    static constexpr bool is_distributed_trait{bdistributed}; ///< flag to indicate whether this grid is distributed in memory
 
 protected:
-    using grid_fft_t = Grid_FFT<data_t,bdistributed>;
+    using grid_fft_t = Grid_FFT<data_t,bdistributed>; ///< type of this grid
     
 public:
     std::array<size_t, 3> n_, nhalf_;
@@ -68,7 +69,11 @@ public:
     ptrdiff_t local_0_start_, local_1_start_;
     ptrdiff_t local_0_size_, local_1_size_;
 
-    //! constructor for FTable grid object
+    /// @brief constructor for FTable grid object
+    /// @param N number of grid points in each dimension
+    /// @param L physical size of the grid in each dimension
+    /// @param allocate flag to indicate whether to allocate memory for the grid
+    /// @param initialspace flag to indicate whether the grid is initially in real or k-space
     Grid_FFT(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L, bool allocate = true, space_t initialspace = rspace_id)
         : n_(N), length_(L), space_(initialspace), data_(nullptr), cdata_(nullptr), plan_(nullptr), iplan_(nullptr), ballocated_( false )
     {
@@ -77,11 +82,16 @@ public:
         }
     }
 
-    // avoid implicit copying of data
+    /// @brief copy constructor [deleted] -- to avoid implicit copying of data
     Grid_FFT(const grid_fft_t &g) = delete;
 
+    /// @brief assignment operator [deleted] -- to avoid implicit copying of data
+    grid_fft_t &operator=(const grid_fft_t &g) = delete;
+
+    /// @brief destructor
     ~Grid_FFT() { reset(); }
 
+    /// @brief reset grid object (free memory, etc.)
     void reset()
     {
         if (data_ != nullptr)  { FFTW_API(free)(data_); data_ = nullptr; }
@@ -90,13 +100,18 @@ public:
         ballocated_ = false;
     }
 
+    /// @brief return the grid object for a given refinement level [dummy implementation for backward compatibility with MUSIC1]
     const grid_fft_t *get_grid(size_t ilevel) const { return this; }
 
-    //! return if grid object is 
+    /// @brief return if grid object is distributed in memory
+    /// @return true if grid object is distributed in memory
     bool is_distributed( void ) const noexcept { return bdistributed; }
 
+    /// @brief allocate memory for grid object
     void allocate();
 
+    /// @brief return if grid object is allocated
+    /// @return true if grid object is allocated
     bool is_allocated( void ) const noexcept { return ballocated_; }
 
     //! return the number of data_t elements that we store in the container
