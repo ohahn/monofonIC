@@ -21,6 +21,8 @@
 #include <cstdarg>
 #include <fstream>
 #include <iostream>
+#include <iomanip> // for std::setw
+#include <string> // for std::string
 
 namespace music {
 
@@ -147,5 +149,33 @@ extern log_stream elog;
 extern log_stream wlog;
 extern log_stream ilog;
 extern log_stream dlog;
+
+// global functions for convenience
+inline void COLUMN_ilog(const std::string& text1, const std::string& text2) {
+  music::ilog << std::setw(32) << std::left << text1 << " : " << text2 << std::endl;
+}
+
+inline void COLUMN_ilog(const std::string& text1, bool flag) {
+  music::ilog << std::setw(32) << std::left << text1 << " : " << (flag?"enabled":"disabled") << std::endl;
+}
+
+inline void COLUMN_ilog(const std::string& text1, double value) {
+  music::ilog << std::setw(32) << std::left << text1 << " : " << value << std::endl;
+}
+
+inline void COLUMN_ilog(const std::string& text1, size_t value) {
+  music::ilog << std::setw(32) << std::left << text1 << " : " << value << std::endl;
+}
+
+inline void CODE_PART_msg(const std::string& text) {
+  music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+  music::ilog << "|| " << std::setw(48) << std::setfill('.') << text << std::setw(28) << std::right << "||" << std::setfill(' ') << std::endl;
+}
+
+inline void CODE_PART_COMPLETE_msg( double wtime ){
+  music::ilog << "||" << std::setw(65) << std::right << "took : " << std::setw(8) << wtime << "s ||" << std::endl;
+  music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+  music::ilog << std::endl;
+}
 
 } // namespace music

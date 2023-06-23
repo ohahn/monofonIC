@@ -293,7 +293,7 @@ namespace cosmology
             {
                 cosmo_param_.set("pnorm", 1.0 / Dplus_target_ / Dplus_target_);
                 auto sigma8 = this->compute_sigma8();
-                music::ilog << "Measured sigma_8 for given PS normalisation is " << sigma8 << std::endl;
+                music::COLUMN_ilog("Measured sigma_8", sigma8 );
             }
             cosmo_param_.set("sqrtpnorm", std::sqrt(cosmo_param_["pnorm"]));
 

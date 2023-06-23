@@ -97,7 +97,7 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! number of resolution elements per dimension
     const size_t ngrid = the_config.get_value<size_t>("setup", "GridRes");
-
+    music::COLUMN_ilog( "Grid resolution", ngrid );
     //--------------------------------------------------------------------------------------------------------
     //! box side length in h-1 Mpc
     const real_t boxlen = the_config.get_value<double>("setup", "BoxLength");
@@ -135,23 +135,28 @@ int run( config_file& the_config )
         : ((lattice_str=="masked")? particle::lattice_masked
         : particle::lattice_sc)))));
 
-    music::ilog << "Using " << lattice_str << " lattice for particle load." << std::endl;
+    // music::ilog << "Using " << lattice_str << " lattice for particle load." << std::endl;
+    music::COLUMN_ilog( "Lattice for particle load", lattice_str );
 
     //--------------------------------------------------------------------------------------------------------
     //! apply fixing of the complex mode amplitude following Angulo & Pontzen (2016) [https://arxiv.org/abs/1603.05253]
     const bool bDoFixing    = the_config.get_value_safe<bool>("setup", "DoFixing", false);
-    music::ilog << "Fixing of complex mode amplitudes is " << (bDoFixing?"enabled":"disabled") << std::endl;
+    music::COLUMN_ilog( "Fixing of mode amplitudes", bDoFixing );
+    // music::ilog << "Fixing of complex mode amplitudes is " << (bDoFixing?"enabled":"disabled") << std::endl;
 
     const bool bDoInversion = the_config.get_value_safe<bool>("setup", "DoInversion", false);
-    music::ilog << "Inversion of the phase field is " << (bDoInversion?"enabled":"disabled") << std::endl;
+    music::COLUMN_ilog( "Inversion of the phase field", bDoInversion );
+    // music::ilog << "Inversion of the phase field is " << (bDoInversion?"enabled":"disabled") << std::endl;
 
     //--------------------------------------------------------------------------------------------------------
     //! do baryon ICs?
     const bool bDoBaryons = the_config.get_value_safe<bool>("setup", "DoBaryons", false );
-    music::ilog << "Baryon ICs are " << (bDoBaryons?"enabled":"disabled") << std::endl;
+    // music::ilog << "Baryon ICs are " << (bDoBaryons?"enabled":"disabled") << std::endl;
+    music::COLUMN_ilog( "Baryon ICs", bDoBaryons );
     //! enable also back-scaled decaying relative velocity mode? only first order!
     const bool bDoLinearBCcorr = the_config.get_value_safe<bool>("setup", "DoBaryonVrel", false);
-    music::ilog << "Baryon linear relative velocity mode is " << (bDoLinearBCcorr?"enabled":"disabled") << std::endl;
+    // music::ilog << "Baryon linear relative velocity" << (bDoLinearBCcorr?"enabled":"disabled") << std::endl;
+    music::COLUMN_ilog( "Baryon linear relative velocity", bDoLinearBCcorr );
     // compute mass fractions 
     std::map< cosmo_species, double > Omega;
     if( bDoBaryons ){
