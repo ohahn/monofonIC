@@ -78,7 +78,7 @@ private:
 
     add_class_parameter("Omega_b", cosmo_params_.get("Omega_b"));
     add_class_parameter("Omega_k", cosmo_params_.get("Omega_k"));
-    
+
     //--- dark energy EOS ---------------------------------------------
     // CLASS docu:
     // 8a) Dark energy contributions. At least one out of three conditions must be satisfied:
@@ -90,11 +90,11 @@ private:
     // closure equation (sum_i Omega_i) equals (1 + Omega_k)
     // (default: 'Omega_fld' and 'Omega_scf' set to 0 and 'Omega_Lambda' inferred by code)
 
-    add_class_parameter("fluid_equation_of_state","CLP");
+    add_class_parameter("fluid_equation_of_state", "CLP");
     add_class_parameter("Omega_Lambda", 0.0);
     add_class_parameter("Omega_scf", 0.0);
-    add_class_parameter("w0_fld", cosmo_params_.get("w_0") );
-    add_class_parameter("wa_fld", cosmo_params_.get("w_a") );
+    add_class_parameter("w0_fld", cosmo_params_.get("w_0"));
+    add_class_parameter("wa_fld", cosmo_params_.get("w_a"));
     add_class_parameter("cs2_fld", 1);
 
     //--- massive neutrinos -------------------------------------------
@@ -114,7 +114,7 @@ private:
         sstr_T << T_ncdm_[i];
         omega_ncdm_total_ += omega_ncdm_[i];
 
-        if( i<omega_ncdm_.size()-1 )
+        if (i < omega_ncdm_.size() - 1)
         {
           sstr_m << ", ";
           sstr_omega << ", ";
@@ -173,13 +173,19 @@ private:
       }
     }
 
+    //... CDM density parameter
     add_class_parameter("Omega_cdm", std::max(omega_c_, 1e-9));
 
-    add_class_parameter("Omega_ncdm", sstr_omega.str().c_str());
-    add_class_parameter("m_ncdm", sstr_m.str().c_str());
-    add_class_parameter("T_ncdm", sstr_T.str().c_str());
+    //... massive neutrinos or other non-cold DM species (nCDM), if any
+    if (N_nu_massive_ > 0 || N_ncdm_ > 0)
+    {
+      add_class_parameter("N_ncdm", N_nu_massive_ + N_ncdm_);
+      add_class_parameter("Omega_ncdm", sstr_omega.str().c_str());
+      add_class_parameter("m_ncdm", sstr_m.str().c_str());
+      add_class_parameter("T_ncdm", sstr_T.str().c_str());
 
-    add_class_parameter("N_ncdm", cosmo_params_.get("N_nu_massive") + N_ncdm_);
+      // add_class_parameter("N_ncdm", cosmo_params_.get("N_nu_massive") + N_ncdm_);
+    }
 
     //--- cosmological parameters, primordial -------------------------
     add_class_parameter("P_k_ini type", "analytic_Pk");
@@ -236,12 +242,12 @@ private:
       zlist << std::max(ztarget_, zstart_) << ", " << std::min(ztarget_, zstart_) << ", 0.0";
     add_class_parameter("z_pk", zlist.str());
 
-    music::ilog << ">>> Computing transfer function via ClassEngine..." << std::endl;
+    music::CODE_PART_msg("Computing transfer function via ClassEngine");
     double wtime = get_wtime();
 
     the_ClassEngine_ = std::make_unique<ClassEngine>(pars_, false);
-
-    music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
+    music::CODE_PART_COMPLETE_msg(get_wtime() - wtime);
+    // music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
   }
 
   //! run ClassEngine with parameters set up
@@ -451,7 +457,7 @@ public:
     kmin_ = k[0];
     kmax_ = k.back();
 
-    music::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
+    // music::ilog << "CLASS table contains k = " << this->get_kmin() << " to " << this->get_kmax() << " h Mpc-1." << std::endl;
 
     tf_distinct_ = true;
     tf_withvel_ = true;
