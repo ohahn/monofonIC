@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 include(FetchContent)
 FetchContent_Declare(
     genericio
-    GIT_REPOSITORY https://xgitlab.cels.anl.gov/hacc/genericio.git
+    GIT_REPOSITORY https://git.cels.anl.gov/hacc/genericio.git
     GIT_TAG master
     GIT_SHALLOW YES
     GIT_PROGRESS TRUE
