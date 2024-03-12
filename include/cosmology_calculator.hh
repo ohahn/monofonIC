@@ -152,8 +152,10 @@ private:
 
 public:
     
+    //! default constructor [deleted]
     calculator() = delete;
     
+    //! copy constructor [deleted]
     calculator(const calculator& c) = delete;
 
     //! constructor for a cosmology calculator object
@@ -179,7 +181,7 @@ public:
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
-        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
+        transfer_function_ = select_TransferFunction_plugin(cf, cosmo_param_);
         transfer_function_->intialise();
         if( !transfer_function_->tf_isnormalised_ ){
             cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
@@ -192,16 +194,24 @@ public:
 
         music::ilog << std::setw(32) << std::left << "TF supports distinct CDM+baryons"
                     << " : " << (transfer_function_->tf_is_distinct() ? "yes" : "no") << std::endl;
+        music::ilog << std::setw(32) << std::left << "TF minimum wave number"
+                    << " : " << transfer_function_->get_kmin() << " h/Mpc" << std::endl;
         music::ilog << std::setw(32) << std::left << "TF maximum wave number"
                     << " : " << transfer_function_->get_kmax() << " h/Mpc" << std::endl;
+        if( std::sqrt(3.0)* 2.0*M_PI / cf.get_value<double>("setup","BoxLength") * cf.get_value<double>("setup","GridRes")/2  >= transfer_function_->get_kmax() ){
+            music::elog << "Simulation nyquist mode kny = " << std::sqrt(3.0)* 2.0*M_PI / cf.get_value<double>("setup","BoxLength") * cf.get_value<double>("setup","GridRes")/2 << " h/Mpc is beyond valid range of transfer function!" << std::endl;
+        }
 
         m_n_s_ = cosmo_param_["n_s"];
         m_sqrtpnorm_ = cosmo_param_["sqrtpnorm"];
     }
 
+    //! destructor
     ~calculator() { }
 
-    //! Write out a correctly scaled power spectrum at time a
+    /// @brief Write out a correctly scaled power spectrum at time a
+    /// @param a scale factor
+    /// @param fname file name
     void write_powerspectrum(real_t a, std::string fname) const
     {
         // const real_t Dplus0 = this->get_growth_factor(a);
@@ -248,7 +258,8 @@ public:
         music::ilog << "Wrote power spectrum at a=" << a << " to file \'" << fname << "\'" << std::endl;
     }
 
-    //! Write out a correctly scaled power spectrum at starting time
+    /// @brief Write out a correctly scaled transfer function at time a
+    /// @param[in] fname filename to write to
     void write_transfer( std::string fname ) const
     {
         // const real_t Dplus0 = this->get_growth_factor(a);
@@ -294,12 +305,16 @@ public:
         music::ilog << "Wrote input transfer functions at a=" << astart_ << " to file \'" << fname << "\'" << std::endl;
     }
 
+    /// @brief return the cosmological parameter object
+    /// @return cosmological parameter object
     const cosmology::parameters &get_parameters(void) const noexcept
     {
         return cosmo_param_;
     }
 
-    //! return the value of the Hubble function H(a) = dloga/dt 
+    /// @brief return the value of the Hubble function H(a) = dloga/dt 
+    /// @param[in] a scale factor
+    /// @return H(a)
     inline double H_of_a(double a) const noexcept
     {
         double HH2 = 0.0;
@@ -310,13 +325,17 @@ public:
         return cosmo_param_["H0"] * std::sqrt(HH2);
     }
 
-    //! Computes the linear theory growth factor D+, normalised to D+(a=1)=1
+    /// @brief Computes the linear theory growth factor D+, normalised to D+(a=1)=1
+    /// @param[in] a scale factor
+    /// @return D+(a)
     real_t get_growth_factor(real_t a) const noexcept
     {
         return D_of_a_(a) / Dnow_;
     }
 
-    //! Computes the inverse of get_growth_factor
+    /// @brief Computes the inverse of get_growth_factor, i.e. a(D+)
+    /// @param[in] Dplus growth factor
+    /// @return a(D+)
     real_t get_a( real_t Dplus ) const noexcept
     {
         return a_of_D_( Dplus * Dnow_ );

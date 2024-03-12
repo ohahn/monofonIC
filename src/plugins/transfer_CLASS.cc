@@ -163,7 +163,7 @@ private:
     music::ilog << "Computing transfer function via ClassEngine..." << std::endl;
     double wtime = get_wtime();
 
-    the_ClassEngine_ = std::move(std::make_unique<ClassEngine>(pars_, false));
+    the_ClassEngine_ = std::make_unique<ClassEngine>(pars_, false);
 
     wtime = get_wtime() - wtime;
     music::ilog << "CLASS took " << wtime << " s." << std::endl;

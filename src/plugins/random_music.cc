@@ -180,7 +180,7 @@ void RNG_music::parse_random_parameters(void)
         //... generate some dummy seed which only depends on the level, negative so we know it's not
         //... an actual seed and thus should not be used as a constraint for coarse levels
         // rngseeds_.push_back( -abs((unsigned)(ltemp-i)%123+(unsigned)(ltemp+827342523521*i)%123456789) );
-        rngseeds_.push_back(-abs((long)(ltemp - i) % 123 + (long)(ltemp + 7342523521 * i) % 123456789));
+        rngseeds_.push_back(-std::abs((long)(ltemp - i) % 123 + (long)(ltemp + 7342523521 * i) % 123456789));
       else
       {
         if (ltemp <= 0)

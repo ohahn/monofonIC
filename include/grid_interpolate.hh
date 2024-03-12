@@ -175,13 +175,14 @@ struct grid_interpolate
 
       MPI_Alltoall(&sendcounts[0], 1, MPI_INT, &recvcounts[0], 1, MPI_INT, MPI_COMM_WORLD);
 
-      size_t tot_receive = recvcounts[0], tot_send = sendcounts[0];
+      size_t tot_receive = recvcounts[0];
+//      size_t tot_send = sendcounts[0];
       for (int i = 1; i < MPI::get_size(); ++i)
       {
         sendoffsets[i] = sendcounts[i - 1] + sendoffsets[i - 1];
         recvoffsets[i] = recvcounts[i - 1] + recvoffsets[i - 1];
         tot_receive += recvcounts[i];
-        tot_send += sendcounts[i];
+//        tot_send += sendcounts[i];
       }
 
       std::vector<vec3> recvbuf(tot_receive/3,{0.,0.,0.});

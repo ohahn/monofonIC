@@ -157,7 +157,7 @@ public:
 
 namespace
 {
-output_plugin_creator_concrete<genericio_output_plugin> creator1("genericio");
+output_plugin_creator_concrete<genericio_output_plugin> creator101("genericio");
 } // namespace
 
 #endif // ENABLE_GENERICIO

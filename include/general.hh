@@ -20,6 +20,7 @@
 
 #include <complex>
 #include <map>
+#include <memory>
 
 #if defined(USE_MPI)
 #include <mpi.h>
@@ -183,6 +184,8 @@ inline void multitask_sync_barrier(void)
   MPI_Barrier(MPI_COMM_WORLD);
 #endif
 }
+
+extern size_t global_mem_high_mark, local_mem_high_mark;
 
 namespace CONFIG
 {

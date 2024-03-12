@@ -43,8 +43,11 @@ bool FFTW_threads_ok = false;
 int  num_threads = 1;
 }
 
+size_t global_mem_high_mark, local_mem_high_mark;
 
 #include "system_stat.hh"
+#include "memory_stat.hh"
+
 
 #include <exception>
 #include <stdexcept>
@@ -75,6 +78,8 @@ int main( int argc, char** argv )
 #else
     music::logger::set_level(music::log_level::debug);
 #endif
+
+    global_mem_high_mark = local_mem_high_mark = 0;
 
     //------------------------------------------------------------------------------
     // initialise MPI 
@@ -259,13 +264,25 @@ int main( int argc, char** argv )
     ic_generator::reset();
     ///////////////////////////////////////////////////////////////////////
 
+    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+    size_t peak_mem = memory::getPeakRSS();
+#if defined(USE_MPI)
+    size_t peak_mem_max{0};
+    MPI_Allreduce(&peak_mem, &peak_mem_max, 1, MPI_UNSIGNED_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
+    peak_mem = peak_mem_max;
+#endif
+
+    if( peak_mem > (1ull<<30) )
+        music::ilog << "Peak memory usage was " << peak_mem /(1ull<<30) << " GBytes / task" << std::endl;
+    else 
+        music::ilog << "Peak memory usage was " << peak_mem /(1ull<<20) << " MBytes / task" << std::endl;
+
 
 #if defined(USE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 #endif
-
-    music::ilog << "-------------------------------------------------------------------------------" << std::endl;
+        
     music::ilog << "Done. Have a nice day!\n" << std::endl;
 
     return 0;

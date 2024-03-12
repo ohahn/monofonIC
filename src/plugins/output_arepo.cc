@@ -33,7 +33,7 @@ std::vector<T> from_value(const T a)
 }
 
 template <typename write_real_t>
-class gadget_hdf5_output_plugin : public output_plugin
+class arepo_output_plugin : public output_plugin
 {
   struct header_t
   {
@@ -73,7 +73,7 @@ protected:
 
 public:
   //! constructor
-  explicit gadget_hdf5_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator>& pcc)
+  explicit arepo_output_plugin(config_file &cf, std::unique_ptr<cosmology::calculator>& pcc)
       : output_plugin(cf, pcc, "AREPO-HDF5")
   {
     num_files_ = 1;
@@ -148,7 +148,7 @@ public:
   }
 
   // use destructor to write header post factum
-  ~gadget_hdf5_output_plugin()
+  ~arepo_output_plugin()
   {
     HDFCreateGroup(this_fname_, "Header");
     HDFWriteGroupAttribute(this_fname_, "Header", "NumPart_ThisFile", from_6array<unsigned>(header_.npart));
@@ -271,9 +271,9 @@ public:
 namespace
 {
 #if !defined(USE_SINGLEPRECISION)
-output_plugin_creator_concrete<gadget_hdf5_output_plugin<double>> creator1("AREPO");
+output_plugin_creator_concrete<arepo_output_plugin<double>> creator880("AREPO");
 #else
-output_plugin_creator_concrete<gadget_hdf5_output_plugin<float>> creator1("AREPO");
+output_plugin_creator_concrete<arepo_output_plugin<float>> creator881("AREPO");
 #endif
 } // namespace
 

@@ -75,5 +75,5 @@ std::unique_ptr<TransferFunction_plugin> select_TransferFunction_plugin(config_f
         music::ilog << std::setw(32) << std::left << "Transfer function plugin" << " : " << tfname << std::endl;
     }
 
-    return std::move(the_TransferFunction_plugin_creator->create(cf, cosmo_param));
+    return the_TransferFunction_plugin_creator->create(cf, cosmo_param);
 }

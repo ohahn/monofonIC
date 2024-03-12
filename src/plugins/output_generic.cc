@@ -123,7 +123,7 @@ void generic_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
 
 namespace
 {
-   output_plugin_creator_concrete<generic_output_plugin> creator1("generic"); 
+   output_plugin_creator_concrete<generic_output_plugin> creator001("generic"); 
 } // namespace
 
 #endif

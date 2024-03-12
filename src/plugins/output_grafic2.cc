@@ -212,7 +212,7 @@ void grafic2_output_plugin::write_grid_data(const Grid_FFT<real_t> &g, const cos
         unlink(file_name.c_str());
     }
 
-    std::ofstream *pofs;
+    std::ofstream *pofs = nullptr;
 
     // write header or seek to end of file
     if (CONFIG::MPI_task_rank == 0)
@@ -323,5 +323,5 @@ void grafic2_output_plugin::write_ramses_namelist(void) const
 
 namespace
 {
-  output_plugin_creator_concrete<grafic2_output_plugin> creator1("grafic2");
+  output_plugin_creator_concrete<grafic2_output_plugin> creator201("grafic2");
 } // namespace

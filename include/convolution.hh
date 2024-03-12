@@ -22,6 +22,9 @@
 #include <general.hh>
 #include <grid_fft.hh>
 
+/// @brief base class for convolutions of two or three fields
+/// @tparam data_t 
+/// @tparam derived_t 
 template <typename data_t, typename derived_t>
 class BaseConvolver
 {
@@ -30,23 +33,44 @@ protected:
     std::array<real_t, 3> length_;
 
 public:
+
+    /// @brief Construct a new Base Convolver object
+    /// @param N linear grid size
+    /// @param L physical box size
     BaseConvolver(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L)
         : np_(N), length_(L) {}
 
+
+    /// @brief Construct a new Base Convolver object [deleted copy constructor]  
     BaseConvolver( const BaseConvolver& ) = delete;
     
+    /// @brief destructor (virtual)
     virtual ~BaseConvolver() {}
 
-    // implements convolution of two Fourier-space fields
+    /// @brief implements convolution of two Fourier-space fields
+    /// @tparam kfunc1 field 1
+    /// @tparam kfunc2 field 2
+    /// @tparam opp output operator
     template <typename kfunc1, typename kfunc2, typename opp>
     void convolve2(kfunc1 kf1, kfunc2 kf2, opp op) {}
 
-    // implements convolution of three Fourier-space fields
+    /// @brief implements convolution of three Fourier-space fields
+    /// @tparam kfunc1 field 1
+    /// @tparam kfunc2 field 2
+    /// @tparam kfunc3 field 3
+    /// @tparam opp output operator
     template <typename kfunc1, typename kfunc2, typename kfunc3, typename opp>
     void convolve3(kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp op) {}
 
 public:
 
+    /// @brief convolve two gradient fields in Fourier space a_{,i} * b_{,j}
+    /// @tparam opp output operator type
+    /// @param inl left input field a
+    /// @param d1l direction of first gradient (,i)
+    /// @param inr right input field b
+    /// @param d1r direction of second gradient (,j)
+    /// @param output_op output operator
     template <typename opp>
     void convolve_Gradients(Grid_FFT<data_t> &inl, const std::array<int, 1> &d1l,
                             Grid_FFT<data_t> &inr, const std::array<int, 1> &d1r,
@@ -55,19 +79,29 @@ public:
         // transform to FS in case fields are not
         inl.FourierTransformForward();
         inr.FourierTransformForward();
-        // perform convolution of Hessians
+        // perform convolution of two gradients
         static_cast<derived_t &>(*this).convolve2(
+            // first gradient
             [&inl,&d1l](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inl.gradient(d1l[0],{i,j,k});
                 return grad1*inl.kelem(i, j, k);
             },
+            // second gradient
             [&inr,&d1r](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inr.gradient(d1r[0],{i,j,k});
                 return grad1*inr.kelem(i, j, k);
             },
+            // -> output operator
             output_op);
     }
 
+    /// @brief convolve a gradient and a Hessian field in Fourier space a_{,i} * b_{,jk}
+    /// @tparam opp output operator type
+    /// @param inl left input field a
+    /// @param d1l direction of gradient (,i)
+    /// @param inr right input field b
+    /// @param d2r directions of Hessian (,jk)
+    /// @param output_op output operator
     template <typename opp>
     void convolve_Gradient_and_Hessian(Grid_FFT<data_t> &inl, const std::array<int, 1> &d1l,
                                        Grid_FFT<data_t> &inr, const std::array<int, 2> &d2r,
@@ -76,19 +110,29 @@ public:
         // transform to FS in case fields are not
         inl.FourierTransformForward();
         inr.FourierTransformForward();
-        // perform convolution of Hessians
+        // perform convolution of gradient and Hessian
         static_cast<derived_t &>(*this).convolve2(
+            // gradient
             [&](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto kk = inl.template get_k<real_t>(i, j, k);
                 return ccomplex_t(0.0, -kk[d1l[0]]) * inl.kelem(i, j, k);
             },
+            // Hessian
             [&](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto kk = inr.template get_k<real_t>(i, j, k);
                 return -kk[d2r[0]] * kk[d2r[1]] * inr.kelem(i, j, k);
             },
+            // -> output operator
             output_op);
     }
 
+    /// @brief convolve two Hessian fields in Fourier space a_{,ij} * b_{,kl}
+    /// @tparam opp output operator type
+    /// @param inl left input field a
+    /// @param d2l directions of first Hessian (,ij)
+    /// @param inr right input field b
+    /// @param d2r directions of second Hessian (,kl)
+    /// @param output_op output operator
     template <typename opp>
     void convolve_Hessians(Grid_FFT<data_t> &inl, const std::array<int, 2> &d2l,
                            Grid_FFT<data_t> &inr, const std::array<int, 2> &d2r,
@@ -99,19 +143,31 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve2(
+            // first Hessian
             [&inl,&d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inl.gradient(d2l[0],{i,j,k});
                 auto grad2 = inl.gradient(d2l[1],{i,j,k});
                 return grad1*grad2*inl.kelem(i, j, k);
             },
+            // second Hessian
             [&inr,&d2r](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inr.gradient(d2r[0],{i,j,k});
                 auto grad2 = inr.gradient(d2r[1],{i,j,k});
                 return grad1*grad2*inr.kelem(i, j, k);
             },
+            // -> output operator
             output_op);
     }
 
+    /// @brief convolve three Hessian fields in Fourier space a_{,ij} * b_{,kl} * c_{,mn}
+    /// @tparam opp output operator
+    /// @param inl first input field a
+    /// @param d2l directions of first Hessian (,ij)
+    /// @param inm second input field b
+    /// @param d2m directions of second Hessian (,kl)
+    /// @param inr third input field c
+    /// @param d2r directions of third Hessian (,mn)
+    /// @param output_op output operator
     template <typename opp>
     void convolve_Hessians(Grid_FFT<data_t> &inl, const std::array<int, 2> &d2l,
                            Grid_FFT<data_t> &inm, const std::array<int, 2> &d2m,
@@ -124,24 +180,36 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve3(
+            // first Hessian
             [&inl, &d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inl.gradient(d2l[0],{i,j,k});
                 auto grad2 = inl.gradient(d2l[1],{i,j,k});
                 return grad1*grad2*inl.kelem(i, j, k);
             },
+            // second Hessian
             [&inm, &d2m](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inm.gradient(d2m[0],{i,j,k});
                 auto grad2 = inm.gradient(d2m[1],{i,j,k});
                 return grad1*grad2*inm.kelem(i, j, k);
             },
+            // third Hessian
             [&inr, &d2r](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inr.gradient(d2r[0],{i,j,k});
                 auto grad2 = inr.gradient(d2r[1],{i,j,k});
                 return grad1*grad2*inr.kelem(i, j, k);
             },
+            // -> output operator
             output_op);
     }
 
+    /// @brief convolve Hessian field with sum of two Hessian fields in Fourier space a_{,ij} * (b_{,kl} + c_{,mn})
+    /// @tparam opp output operator type
+    /// @param inl left input field a
+    /// @param d2l directions of first Hessian (,ij)
+    /// @param inr right input field b
+    /// @param d2r1 directions of second Hessian (,kl)
+    /// @param d2r2 directions of third Hessian (,mn)
+    /// @param output_op output operator
     template <typename opp>
     void convolve_SumOfHessians(Grid_FFT<data_t> &inl, const std::array<int, 2> &d2l,
                                 Grid_FFT<data_t> &inr, const std::array<int, 2> &d2r1, const std::array<int, 2> &d2r2,
@@ -152,11 +220,13 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve2(
+            // first Hessian
             [&inl, &d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inl.gradient(d2l[0],{i,j,k});
                 auto grad2 = inl.gradient(d2l[1],{i,j,k});
                 return grad1*grad2*inl.kelem(i, j, k);
             },
+            // second two Hessian and sum
             [&inr, &d2r1, &d2r2](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad11 = inr.gradient(d2r1[0],{i,j,k});
                 auto grad12 = inr.gradient(d2r1[1],{i,j,k});
@@ -164,9 +234,18 @@ public:
                 auto grad22 = inr.gradient(d2r2[1],{i,j,k});
                 return (grad11*grad12+grad21*grad22)*inr.kelem(i, j, k);
             },
+            // -> output operator
             output_op);
     }
 
+    /// @brief convolve Hessian field with difference of two Hessian fields in Fourier space a_{,ij} * (b_{,kl} - c_{,mn})
+    /// @tparam opp output operator type
+    /// @param inl left input field a
+    /// @param d2l directions of first Hessian (,ij)
+    /// @param inr right input field b
+    /// @param d2r1 directions of second Hessian (,kl)
+    /// @param d2r2 directions of third Hessian (,mn)
+    /// @param output_op output operator
     template <typename opp>
     void convolve_DifferenceOfHessians(Grid_FFT<data_t> &inl, const std::array<int, 2> &d2l,
                                        Grid_FFT<data_t> &inr, const std::array<int, 2> &d2r1, const std::array<int, 2> &d2r2,
@@ -177,11 +256,13 @@ public:
         inr.FourierTransformForward();
         // perform convolution of Hessians
         static_cast<derived_t &>(*this).convolve2(
+            // first Hessian
             [&inl, &d2l](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad1 = inl.gradient(d2l[0],{i,j,k});
                 auto grad2 = inl.gradient(d2l[1],{i,j,k});
                 return grad1*grad2*inl.kelem(i, j, k);
             },
+            // second two Hessian and difference
             [&inr, &d2r1, &d2r2](size_t i, size_t j, size_t k) -> ccomplex_t {
                 auto grad11 = inr.gradient(d2r1[0],{i,j,k});
                 auto grad12 = inr.gradient(d2r1[1],{i,j,k});
@@ -189,21 +270,29 @@ public:
                 auto grad22 = inr.gradient(d2r2[1],{i,j,k});
                 return (grad11*grad12-grad21*grad22)*inr.kelem(i, j, k);
             },
+            // -> output operator
             output_op);
     }
 };
 
-//! naive convolution class, disrespecting aliasing
+//! low-level implementation of convolutions -- naive convolution class, ignoring aliasing (no padding)
 template <typename data_t>
 class NaiveConvolver : public BaseConvolver<data_t, NaiveConvolver<data_t>>
 {
 protected:
+    /// @brief buffer for Fourier transformed fields
     Grid_FFT<data_t> *fbuf1_, *fbuf2_;
 
+    /// @brief number of points in each direction
     using BaseConvolver<data_t, NaiveConvolver<data_t>>::np_;
+
+    /// @brief length of each direction
     using BaseConvolver<data_t, NaiveConvolver<data_t>>::length_;
 
 public:
+    /// @brief constructor
+    /// @param N number of points in each direction
+    /// @param L length of each direction
     NaiveConvolver(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L)
         : BaseConvolver<data_t, NaiveConvolver<data_t>>(N, L)
     {
@@ -211,12 +300,14 @@ public:
         fbuf2_ = new Grid_FFT<data_t>(N, length_, true, kspace_id);
     }
 
+    /// @brief destructor
     ~NaiveConvolver()
     {
         delete fbuf1_;
         delete fbuf2_;
     }
 
+    /// @brief convolution of two fields
     template <typename kfunc1, typename kfunc2, typename opp>
     void convolve2(kfunc1 kf1, kfunc2 kf2, opp output_op)
     {
@@ -249,6 +340,7 @@ public:
 
     }
 
+    /// @brief convolution of three fields
     template <typename kfunc1, typename kfunc2, typename kfunc3, typename opp>
     void convolve3(kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp output_op)
     {
@@ -292,7 +384,13 @@ public:
         }
     }
 
+//--------------------------------------------------------------------------------------------------------
 private:
+
+    /// @brief copy data into a grid
+    /// @tparam kfunc abstract function type generating data
+    /// @param kf abstract function generating data
+    /// @param g grid to copy data into
     template <typename kfunc>
     void copy_in(kfunc kf, Grid_FFT<data_t> &g)
     {
@@ -310,23 +408,28 @@ private:
     }
 };
 
-//! convolution class, respecting Orszag's 3/2 rule
+//! convolution class, respecting Orszag's 3/2 rule (padding in Fourier space to avoid aliasing)
 template <typename data_t>
 class OrszagConvolver : public BaseConvolver<data_t, OrszagConvolver<data_t>>
 {
 private:
-    Grid_FFT<data_t> *f1p_, *f2p_;
-    Grid_FFT<data_t> *fbuf_;
+    /// @brief buffer for Fourier transformed fields
+    Grid_FFT<data_t> *f1p_, *f2p_, *fbuf_;
 
     using BaseConvolver<data_t, OrszagConvolver<data_t>>::np_;
     using BaseConvolver<data_t, OrszagConvolver<data_t>>::length_;
 
-    ccomplex_t *crecvbuf_;
-    real_t *recvbuf_;
-    size_t maxslicesz_;
-    std::vector<ptrdiff_t> offsets_, offsetsp_;
-    std::vector<size_t> sizes_, sizesp_;
+    ccomplex_t *crecvbuf_; //!< receive buffer for MPI (complex)
+    real_t *recvbuf_;     //!< receive buffer for MPI (real)
+    size_t maxslicesz_;  //!< maximum size of a slice
+    std::vector<ptrdiff_t> offsets_, offsetsp_; //!< offsets for MPI
+    std::vector<size_t> sizes_, sizesp_;       //!< sizes for MPI
 
+    /// @brief get task index for a given index
+    /// @param index index
+    /// @param offsets offsets
+    /// @param sizes sizes
+    /// @param ntasks number of tasks
     int get_task(ptrdiff_t index, const std::vector<ptrdiff_t> &offsets, const std::vector<size_t> &sizes, const int ntasks)
     {
         int itask = 0;
@@ -336,6 +439,10 @@ private:
     }
 
 public:
+
+    /// @brief constructor
+    /// @param N grid size
+    /// @param L grid length
     OrszagConvolver(const std::array<size_t, 3> &N, const std::array<real_t, 3> &L)
         : BaseConvolver<data_t, OrszagConvolver<data_t>>({3 * N[0] / 2, 3 * N[1] / 2, 3 * N[2] / 2}, L)
     {
@@ -370,6 +477,7 @@ public:
 #endif
     }
 
+    /// @brief destructor
     ~OrszagConvolver()
     {
         delete f1p_;
@@ -380,6 +488,10 @@ public:
 #endif
     }
 
+    /// @brief convolve two fields
+    /// @tparam kfunc1 abstract function type generating data for the first field
+    /// @tparam kfunc2 abstract function type generating data for the second field
+    /// @tparam opp abstract function type for the output operation
     template <typename kfunc1, typename kfunc2, typename opp>
     void convolve2(kfunc1 kf1, kfunc2 kf2, opp output_op)
     {
@@ -405,6 +517,11 @@ public:
         unpad(*f2p_, output_op);
     }
 
+    /// @brief convolve three fields
+    /// @tparam kfunc1 abstract function type generating data for the first field
+    /// @tparam kfunc2 abstract function type generating data for the second field
+    /// @tparam kfunc3 abstract function type generating data for the third field
+    /// @tparam opp abstract function type for the output operation
     template <typename kfunc1, typename kfunc2, typename kfunc3, typename opp>
     void convolve3(kfunc1 kf1, kfunc2 kf2, kfunc3 kf3, opp output_op)
     {
@@ -428,6 +545,10 @@ public:
 
 private:
 
+    /// @brief unpad the result of a convolution and copy it to a grid
+    /// @tparam kdep_functor abstract function type generating data for the result
+    /// @param kfunc abstract function generating data for the result
+    /// @param fp grid to copy the result to
     template <typename kdep_functor>
     void pad_insert( kdep_functor kfunc, Grid_FFT<data_t> &fp)
     {
@@ -472,6 +593,10 @@ private:
 #endif //defined(USE_MPI)
     }
 
+    /// @brief unpad the result of a convolution and write it to an output operator
+    /// @tparam operator_t abstract function type for the output operation
+    /// @param fp grid to copy the result from
+    /// @param output_op abstract function to write the result to
     template <typename operator_t>
     void unpad( Grid_FFT<data_t> &fp, operator_t output_op)
     {

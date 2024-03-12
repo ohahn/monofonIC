@@ -22,18 +22,20 @@
 
 #include <math/vec3.hh>
 
-//! class for 3x3 matrix calculations
+/// @brief class for 3x3 matrix calculations
+/// @tparam T type of matrix elements
 template<typename T>
 class mat3_t{
 protected:
-    std::array<T,9> data_;
-    std::array<double,9> data_double_;
-    gsl_matrix_view m_;
-    gsl_vector *eval_;
-    gsl_matrix *evec_;
-	gsl_eigen_symmv_workspace * wsp_;
-    bool bdid_alloc_gsl_;
+    std::array<T,9> data_; //< data array
+    std::array<double,9> data_double_; //< data array for GSL operations
+    gsl_matrix_view m_; //< GSL matrix view
+    gsl_vector *eval_; //< GSL eigenvalue vector
+    gsl_matrix *evec_; //< GSL eigenvector matrix
+	gsl_eigen_symmv_workspace * wsp_; //< GSL workspace
+    bool bdid_alloc_gsl_; //< flag to indicate whether GSL memory has been allocated
 						
+    /// @brief initialize GSL memory
     void init_gsl(){
         // allocate memory for GSL operations if we haven't done so yet
         if( !bdid_alloc_gsl_ )
@@ -54,6 +56,7 @@ protected:
         }
     }
 
+    /// @brief free GSL memory
     void free_gsl(){
         // free memory for GSL operations if it was allocated
         if( bdid_alloc_gsl_ )
@@ -66,54 +69,76 @@ protected:
 
 public:
 
+    /// @brief default constructor
     mat3_t()
     : bdid_alloc_gsl_(false) 
     {}
 
-    //! copy constructor
+    /// @brief copy constructor
+    /// @param m matrix to copy
     mat3_t( const mat3_t<T> &m)
     : data_(m.data_), bdid_alloc_gsl_(false) 
     {}
     
-    //! move constructor
+    /// @brief move constructor
+    /// @param m matrix to move
     mat3_t( mat3_t<T> &&m)
     : data_(std::move(m.data_)), bdid_alloc_gsl_(false) 
     {}
 
-    //! construct mat3_t from initializer list
+    /// @brief construct mat3_t from initializer list
+    /// @param e initializer list
     template<typename ...E>
     mat3_t(E&&...e) 
     : data_{{std::forward<E>(e)...}}, bdid_alloc_gsl_(false)
     {}
 
+    /// @brief assignment operator
+    /// @param m matrix to copy
+    /// @return reference to this
     mat3_t<T>& operator=(const mat3_t<T>& m) noexcept{
         data_ = m.data_;
         return *this;
     }
 
+    /// @brief move assignment operator
+    /// @param m matrix to move
+    /// @return reference to this
     mat3_t<T>& operator=(const mat3_t<T>&& m) noexcept{
         data_ = std::move(m.data_);
         return *this;
     }
 
-    //! destructor
+    /// @brief destructor
     ~mat3_t(){
         this->free_gsl();
     }
     
-    //! bracket index access to vector components
+    /// @brief bracket index access to flattened matrix components
+    /// @param i index
+    /// @return reference to i-th component
     T &operator[](size_t i) noexcept { return data_[i];}
     
-    //! const bracket index access to vector components
+    /// @brief const bracket index access to flattened matrix components
+    /// @param i index
+    /// @return const reference to i-th component
     const T &operator[](size_t i) const noexcept { return data_[i]; }
 
-    //! matrix 2d index access
+    /// @brief matrix 2d index access
+    /// @param i row index
+    /// @param j column index
+    /// @return reference to (i,j)-th component
     T &operator()(size_t i, size_t j) noexcept { return data_[3*i+j]; }
 
-    //! const matrix 2d index access
+    /// @brief const matrix 2d index access
+    /// @param i row index
+    /// @param j column index
+    /// @return const reference to (i,j)-th component
     const T &operator()(size_t i, size_t j) const noexcept { return data_[3*i+j]; }
 
-    //! in-place addition
+    /// @brief in-place addition
+    /// @param rhs matrix to add
+    /// @return reference to this
     mat3_t<T>& operator+=( const mat3_t<T>& rhs ) noexcept{
         for (size_t i = 0; i < 9; ++i) {
            (*this)[i] += rhs[i];
@@ -121,7 +146,9 @@ public:
         return *this;
     }
 
-    //! in-place subtraction
+    /// @brief in-place subtraction
+    /// @param rhs matrix to subtract
+    /// @return reference to this
     mat3_t<T>& operator-=( const mat3_t<T>& rhs ) noexcept{
         for (size_t i = 0; i < 9; ++i) {
            (*this)[i] -= rhs[i];
@@ -129,10 +156,16 @@ public:
         return *this;
     }
 
+    /// @brief zeroing of matrix
     void zero() noexcept{
         for (size_t i = 0; i < 9; ++i) data_[i]=0;
     }
 
+    /// @brief compute eigenvalues and eigenvectors
+    /// @param evals eigenvalues
+    /// @param evec1 first eigenvector
+    /// @param evec2 second eigenvector
+    /// @param evec3 third eigenvector
     void eigen( vec3_t<T>& evals, vec3_t<T>& evec1, vec3_t<T>& evec2, vec3_t<T>& evec3_t )
     {
         this->init_gsl();
@@ -149,6 +182,11 @@ public:
     }
 };
 
+/// @brief matrix addition
+/// @tparam T type of matrix components
+/// @param lhs left hand side matrix
+/// @param rhs right hand side matrix
+/// @return matrix result = lhs + rhs
 template<typename T>
 constexpr const mat3_t<T> operator+(const mat3_t<T> &lhs, const mat3_t<T> &rhs) noexcept
 {
@@ -159,7 +197,11 @@ constexpr const mat3_t<T> operator+(const mat3_t<T> &lhs, const mat3_t<T> &rhs) 
     return result;
 }
 
-// matrix - vector multiplication
+/// @brief matrix - vector multiplication
+/// @tparam T type of matrix and vector components
+/// @param A matrix
+/// @param v vector
+/// @return vector result = A*v
 template<typename T>
 inline vec3_t<T> operator*( const mat3_t<T> &A, const vec3_t<T> &v ) noexcept
 {

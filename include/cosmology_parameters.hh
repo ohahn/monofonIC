@@ -29,6 +29,7 @@ namespace cosmology
     class parameters
     {
     public:
+        //! type for default parameter maps
         using defaultmmap_t = std::map<std::string,std::map<std::string,real_t>>;
 
     private:
