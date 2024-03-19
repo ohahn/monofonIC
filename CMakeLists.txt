@@ -310,3 +310,13 @@ if(ENABLE_GENERICIO)
   target_link_libraries(${PRGNAME} PRIVATE genericio::genericio_mpi)
   target_compile_definitions(${PRGNAME} PRIVATE "ENABLE_GENERICIO")
 endif()
+
+########################################################################################################################
+# CPU specifics
+if(APPLE)
+    # prevent linking problems on recent MacOS, enable exceptions (disabled otherwise)
+    target_link_options(${PRGNAME} PRIVATE "-fexceptions" "-Wl,-no_warn_duplicate_libraries,-ld_classic" )
+    set(EXE_LINKER_FLAGS "${EXE_LINKER_FLAGS} -Wl,-keep_dwarf_unwind")
+    set(SHARED_LINKER_FLAGS "${SHARED_LINKER_FLAGS} -Wl,-keep_dwarf_unwind")
+    set(MODULE_LINKER_FLAGS "${MODULE_LINKER_FLAGS} -Wl,-keep_dwarf_unwind")
+endif()
