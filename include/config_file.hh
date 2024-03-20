@@ -247,7 +247,7 @@ public:
     {
       r = get_value_basic<T>(section, key);
     }
-    catch (except_item_not_found& e)
+    catch (except_item_not_found const& e)
     {
       music::elog << e.what() << std::endl;
       throw;
@@ -269,7 +269,7 @@ public:
     T r;
     try {
       r = get_value_basic<T>(section, key);
-    } catch (except_item_not_found&) {
+    } catch (except_item_not_found const&) {
       r = default_value;
       music::dlog << "Item \'" << section << "/" << key << " not found in config. Default = \'" << default_value << "\'" << std::endl;
     }
