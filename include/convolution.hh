@@ -270,7 +270,24 @@ public:
                 auto grad22 = inr.gradient(d2r2[1],{i,j,k});
                 return (grad11*grad12-grad21*grad22)*inr.kelem(i, j, k);
             },
-            // -> output operator
+            output_op);
+    }
+    
+    /// @brief performs the multiplication of two fields by convolving them in Fourier space
+    /// @tparam opp output operator type
+    /// @param inl left input field a)
+    /// @param inr right input field b
+    /// @param output_op output operator
+    template <typename opp> // TOMA
+    void multiply_field(Grid_FFT<data_t> &inl, Grid_FFT<data_t> &inr, opp output_op)
+    {
+        // transform to FS in case fields are not
+        inl.FourierTransformForward();
+        inr.FourierTransformForward();
+        // perform convolution of Hessians
+        static_cast<derived_t &>(*this).convolve2(
+            [&inl](size_t i, size_t j, size_t k) -> ccomplex_t {return  inl.kelem(i, j, k); },
+            [&inr](size_t i, size_t j, size_t k) -> ccomplex_t {return  inr.kelem(i, j, k); },
             output_op);
     }
 };

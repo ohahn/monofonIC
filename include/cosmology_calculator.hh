@@ -55,7 +55,7 @@ private:
     interpolated_function_1d<true,true,false> D_of_a_, f_of_a_, a_of_D_;
     double Dnow_, Dplus_start_, Dplus_target_, astart_, atarget_;
 
-    double m_n_s_, m_sqrtpnorm_;
+    double m_n_s_, m_sqrtpnorm_, tnorm_;
 
     //! wrapper for GSL adaptive integration routine, do not use if many integrations need to be done as it allocates and deallocates memory
     //! set to 61-point Gauss-Kronrod and large workspace, used for sigma_8 normalisation
@@ -181,7 +181,7 @@ public:
         music::ilog << "Linear growth factors: D+_target = " << Dplus_target_ << ", D+_start = " << Dplus_start_ << std::endl;
 
         // set up transfer functions and compute normalisation
-        transfer_function_ = select_TransferFunction_plugin(cf, cosmo_param_);
+        transfer_function_ = std::move(select_TransferFunction_plugin(cf, cosmo_param_));
         transfer_function_->intialise();
         if( !transfer_function_->tf_isnormalised_ ){
             cosmo_param_.set("pnorm", this->compute_pnorm_from_sigma8() );
@@ -204,6 +204,9 @@ public:
 
         m_n_s_ = cosmo_param_["n_s"];
         m_sqrtpnorm_ = cosmo_param_["sqrtpnorm"];
+        
+        double k_p = cosmo_param_["k_p"] / cosmo_param_["h"];
+        tnorm_ = std::sqrt(2.0 * M_PI * M_PI * cosmo_param_["A_s"] * std::pow(1.0 / k_p, cosmo_param_["n_s"] - 1) / std::pow(2.0 * M_PI, 3.0));
     }
 
     //! destructor
@@ -402,6 +405,11 @@ public:
     inline real_t get_amplitude( const real_t k, const tf_type type) const
     {
         return std::pow(k, 0.5 * m_n_s_) * transfer_function_->compute(k, type) * m_sqrtpnorm_;
+    }
+
+    inline real_t get_transfer( const real_t k, const tf_type type) const
+    {
+        return -transfer_function_->compute(k, type)*k*k / tnorm_ * m_sqrtpnorm_;
     }
 
     //! Compute amplitude of the back-scaled delta_bc mode, with decaying velocity v_bc included or not (in which case delta_bc=const)
