@@ -17,7 +17,7 @@ Currently supported features (the list is growing, so check back):
 
 - Multiple Einstein-Boltzmann modules: direct interface with [CLASS](https://lesgourg.github.io/class_public/class.html), file input from CAMB, and fitting formulae (Eisenstein&Hu).
 
-- Multiple output modules for RAMSES, Arepo, Gadget-2/3, SWIFT, and HACC (courtesy M.Buehlmann) via plugins (Nyx is next).
+- Multiple output modules for RAMSES, Arepo, Gadget-2/3, SWIFT, and HACC via plugins.
 
 - Multiple random number modules (MUSIC1,NGenIC,Panphasia,...) (A new MUSIC2 module is in development)
 
@@ -29,6 +29,10 @@ Currently supported features (the list is growing, so check back):
 
 New modules/plugins can be easily added (see how to contribute in CONTRIBUTING.md file)
 
+## Contributors
+- HACC file format plugin: Michael Buehlmann
+- primordial non-Gaussianity support: Thomas Montandon, Adrian Gutierrez
+- PANPHASIA2 module: Adrian Jenkins
 
 ## Contributing and Licensing
 
