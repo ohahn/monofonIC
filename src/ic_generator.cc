@@ -28,6 +28,7 @@
 #include <unistd.h> // for unlink
 
 
+
 /**
  * @brief the possible species of fluids
  *  
@@ -62,9 +63,9 @@ std::unique_ptr<cosmology::calculator>  the_cosmo_calc;
  */
 int initialise( config_file& the_config )
 {
-    the_random_number_generator = select_RNG_plugin(the_config);
+    the_random_number_generator = std::move(select_RNG_plugin(the_config));
     the_cosmo_calc              = std::make_unique<cosmology::calculator>(the_config);
-    the_output_plugin           = select_output_plugin(the_config, the_cosmo_calc);
+    the_output_plugin           = std::move(select_output_plugin(the_config, the_cosmo_calc));
     
     return 0;
 }
@@ -107,7 +108,11 @@ int run( config_file& the_config )
     //--------------------------------------------------------------------------------------------------------
     //! order of the LPT approximation 
     const int LPTorder = the_config.get_value_safe<double>("setup","LPTorder",100);
-
+    const double fnl   = the_config.get_value_safe<double>("cosmology","fnl",0); 
+    const double nf    = the_config.get_value_safe<double>("cosmology","nf",0);
+    const double k0    = the_config.get_value_safe<double>("cosmology","k0",0);
+    const double gnl   = the_config.get_value_safe<double>("cosmology","gnl",0);
+    const double norm  = the_config.get_value_safe<double>("cosmology","norm",1);
     #if defined(USE_CONVOLVER_ORSZAG)
         //! check if grid size is even for Orszag convolver
         if( (ngrid%2 != 0) && (LPTorder>1) ){
@@ -254,6 +259,8 @@ int run( config_file& the_config )
     //... Next, declare LPT related arrays, allocated only as needed by order
     Grid_FFT<real_t> phi({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen});
     Grid_FFT<real_t> phi2({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // do not allocate these unless needed
+    Grid_FFT<real_t> delta_power({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); // TOMA
+
     Grid_FFT<real_t> phi3({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false); //   ..
     Grid_FFT<real_t> A3x({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
     Grid_FFT<real_t> A3y({ngrid, ngrid, ngrid}, {boxlen, boxlen, boxlen}, false);  //   ..
@@ -380,12 +387,73 @@ int run( config_file& the_config )
     music::ilog << std::setw(79) << std::setfill('.') << std::left << ">> Computing phi(1) term" << std::endl;
 
     phi.FourierTransformForward(false);
-    phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
-        real_t kmod = k.norm();
-        ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
-        return -delta / (kmod * kmod);
-    }, wnoise);
 
+        if (fnl != 0 || gnl != 0) {
+
+        phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
+            real_t kmod = k.norm();
+            ccomplex_t zeta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter) / the_cosmo_calc->get_transfer(kmod, delta_matter);
+            return zeta; // zeta is temporarely stored in phi
+        }, wnoise);
+
+        phi.zero_DC_mode();
+        delta_power.allocate(); 
+        delta_power.FourierTransformForward(false);
+
+        Conv.multiply_field(phi, phi , op::assign_to(delta_power)); // phi2 = zeta^2
+
+        if (nf != 0)
+        {
+            delta_power.assign_function_of_grids_kdep([&](auto k, auto delta_power) {
+                real_t kmod = k.norm();
+                return std::pow(kmod/k0, nf)*delta_power;
+            }, delta_power);
+        }
+ 
+        delta_power.FourierTransformBackward();
+        phi.FourierTransformBackward();
+        if (fnl != 0)
+        {
+            music::ilog << "\n>>> Computing  fnl term.... <<<\n" << std::endl;
+
+            phi.assign_function_of_grids_r([&](auto delta1, auto delta_power ){
+                     return norm*(delta1 -fnl*delta_power*3.0/5.0) ;}, phi, delta_power);
+                    // return norm*(delta1 - fnl*delta_power) ;}, phi, delta_power);
+                    // the -3/5 factor is to match the usual fnl  in terms of phi
+                    // 3/5 fnl_zeta = fnl_phi
+                    // no need to sustract the mean since latter 
+                    //is assured that the mean of delta is zero
+        }
+        else{
+
+            music::ilog << "\n>>> Computing  gnl term.... <<<\n" << std::endl;
+            
+            Conv.multiply_field(delta_power, phi , op::assign_to(delta_power)); // delta3 = delta^3
+
+            delta_power.FourierTransformBackward();
+            phi.FourierTransformBackward();
+
+            phi.assign_function_of_grids_r([&](auto delta1, auto delta_power ){
+                     return norm*(delta1 - gnl*delta_power*9.0/25.0) ;}, phi, delta_power);  
+                      // the -9/25 factor is to match the usual gnl  in terms of phi
+                      // 9/25 gnl_zeta = gnl_phi  
+        }
+
+        phi.FourierTransformForward();
+
+        phi.assign_function_of_grids_kdep([&](auto k, auto delta) {
+            real_t kmod = k.norm();
+            return - delta * the_cosmo_calc->get_transfer(kmod, delta_matter) / kmod /kmod ;
+        }, phi);
+
+    } else {
+         phi.assign_function_of_grids_kdep([&](auto k, auto wn) {
+            real_t kmod = k.norm();
+            ccomplex_t delta = wn * the_cosmo_calc->get_amplitude(kmod, delta_matter);
+
+            return -delta / (kmod * kmod);
+        }, wnoise);
+    }
     phi.zero_DC_mode();
 
     music::ilog << std::setw(70) << std::setfill(' ') << std::right << "took : " << std::setw(8) << get_wtime() - wtime << "s" << std::endl;
